@@ -1,0 +1,89 @@
+# ── Éditeurs & OS ─────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.nova/
+.zed/
+.cursor/
+
+# ── Variables d'environnement ────────────────────────────────
+.env
+.env.backup
+.env.production
+.env.local
+.env.*.local
+
+# ══════════════════════════════════════════════════════════════
+#  BACKEND
+# ══════════════════════════════════════════════════════════════
+
+# Dépendances PHP
+/backend/vendor/
+/backend/node_modules/
+
+# Cache
+/backend/bootstrap/cache/*
+!/backend/bootstrap/cache/.gitkeep
+
+# Stockage
+/backend/storage/app/*
+!/backend/storage/app/.gitkeep
+/backend/storage/framework/cache/*
+!/backend/storage/framework/cache/.gitkeep
+/backend/storage/framework/sessions/*
+!/backend/storage/framework/sessions/.gitkeep
+/backend/storage/framework/views/*
+!/backend/storage/framework/views/.gitkeep
+/backend/storage/logs/*
+!/backend/storage/logs/.gitkeep
+/backend/storage/*.key
+/backend/storage/pail
+
+# Tests
+/backend/.phpunit.cache
+/backend/.phpunit.result.cache
+
+# SQLite
+/backend/database/database.sqlite
+/backend/database/database.sqlite-shm
+/backend/database/database.sqlite-wal
+
+# ══════════════════════════════════════════════════════════════
+#  FRONTEND
+# ══════════════════════════════════════════════════════════════
+
+/frontend/node_modules/
+
+# Build
+/frontend/public/build/
+/frontend/public/hot
+/frontend/public/storage
+/frontend/public/fonts-manifest.dev.json
+
+# ══════════════════════════════════════════════════════════════
+#  LOGS & DIVERS
+# ══════════════════════════════════════════════════════════════
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+coverage/
+_ide_helper.php
+.phpactor.json
+.auth.json
+Homestead.json
+Homestead.yaml
