@@ -76,7 +76,7 @@ class UsersController extends Controller
             'color' => $data['color'] ?? '#0c6e4a',
             'rights' => $data['rights'] ?? [],
             'initials' => strtoupper(
-                ($data['prenom'][0] ?? '') . ($data['nom'][0] ?? '')
+                mb_substr($data['prenom'] ?? '', 0, 1) . mb_substr($data['nom'] ?? '', 0, 1)
             ),
         ]);
 
@@ -229,7 +229,7 @@ class UsersController extends Controller
             'direction' => $user->direction ?? '',
             'statut_matrimoniale' => $user->statut_matrimoniale ?? '',
             'carte' => $user->carte ? Storage::disk('public')->url($user->carte) : '',
-            'initials' => $user->initials ?? strtoupper(substr($user->name, 0, 2)),
+            'initials' => $user->initials ?? strtoupper(mb_substr($user->name, 0, 2)),
             'role' => $this->mapRole($user->role),
             'color' => $user->color ?? '#0c6e4a',
             'status' => $user->email_verified_at ? 'actif' : 'inactif',

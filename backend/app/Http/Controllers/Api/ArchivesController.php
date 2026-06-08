@@ -74,7 +74,10 @@ class ArchivesController extends Controller
                     ->orWhereHas('serieArchive', fn ($s) => $s->where('nom_serie', 'like', "%{$q}%"))
                     ->orWhereHas('sousSerie', fn ($s) => $s->where('libelle_sous_serie', 'like', "%{$q}%"))
                     ->orWhereHas('direction', fn ($s) => $s->where('nom_direction', 'like', "%{$q}%"))
-                    ->orWhereHas('service', fn ($s) => $s->where('name', 'like', "%{$q}%"));
+                    ->orWhereHas('service', fn ($s) => $s->where('name', 'like', "%{$q}%"))
+                    ->orWhereRaw('DATE_FORMAT(date_enregistrement, \'%Y-%m-%d\') like ?', ["%{$q}%"])
+                    ->orWhereRaw('DATE_FORMAT(date_enregistrement, \'%d/%m/%Y\') like ?', ["%{$q}%"])
+                    ->orWhereRaw('DATE_FORMAT(date_enregistrement, \'%e/%c/%Y\') like ?', ["%{$q}%"]);
             });
         }
 
@@ -94,6 +97,14 @@ class ArchivesController extends Controller
             if ($serviceModel) {
                 $query->where('service_id', $serviceModel->id);
             }
+        }
+
+        if ($from = $request->get('from')) {
+            $query->whereDate('date_enregistrement', '>=', $from);
+        }
+
+        if ($to = $request->get('to')) {
+            $query->whereDate('date_enregistrement', '<=', $to);
         }
 
         if ($format = $request->get('format')) {

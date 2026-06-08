@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/Icon";
 import Seal from "@/components/ui/Seal";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, ApiService } from "@/lib/api";
 import { CONSERVATION, FORMATS } from "@/lib/data";
 import type { AppCtx, Doc } from "@/lib/types";
 
@@ -56,6 +56,13 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
   const [editSaving, setEditSaving] = useState(false);
   const [editFile, setEditFile] = useState<EditFileState | null>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
+  const [editDirections, setEditDirections] = useState<{ id: string; nom_direction: string }[]>([]);
+  const [editServices, setEditServices] = useState<ApiService[]>([]);
+
+  useEffect(() => {
+    api.settings.listDirections().then(r => setEditDirections(r.directions)).catch(() => {});
+    api.settings.listServices().then(r => setEditServices(r.services)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (editOpen) {
@@ -552,17 +559,24 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
               <div className="field">
-                <label>Service <span className="req">*</span></label>
-                <select className={`select ${editErrors.service ? "error" : ""}`} value={editForm.service} onChange={e => setEF("service", e.target.value)}>
-                  <option value="">— Choisir —</option>
-                  {ctx.services.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className="field">
                 <label>Direction</label>
                 <select className="select" value={editForm.direction} onChange={e => setEF("direction", e.target.value)}>
                   <option value="">— Choisir —</option>
                   {ctx.directions.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label>Service <span className="req">*</span></label>
+                <select className={`select ${editErrors.service ? "error" : ""}`} value={editForm.service} onChange={e => setEF("service", e.target.value)}>
+                  <option value="">— Choisir —</option>
+                  {(() => {
+                    const dirId = editForm.direction ? editDirections.find(d => d.nom_direction === editForm.direction)?.id : null;
+                    const filtered = dirId ? editServices.filter(s => String(s.direction_id) === String(dirId)) : [];
+                    const autres = editServices.find(s => s.name === "Autres");
+                    return (filtered.length > 0 ? filtered : (autres ? [autres] : [])).map(s => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ));
+                  })()}
                 </select>
               </div>
             </div>

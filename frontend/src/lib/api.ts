@@ -74,6 +74,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export interface ApiService {
   id:   string;
   name: string;
+  direction_id: string | null;
 }
 
 export interface ApiUser {

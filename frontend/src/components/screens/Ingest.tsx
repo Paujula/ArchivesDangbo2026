@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/Icon";
 import { CONSERVATION, FORMATS } from "@/lib/data";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, ApiService } from "@/lib/api";
 import type { AppCtx } from "@/lib/types";
 
 interface FileState {
@@ -24,11 +24,15 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
   const [errors,     setErrors]     = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [directions, setDirections] = useState<{ id: string; nom_direction: string }[]>([]);
-  const [services,   setServices]   = useState<{ id: string; name: string }[]>([]);
+  const [services,   setServices]   = useState<ApiService[]>([]);
   const [series,     setSeries]     = useState<{ id: string; nom_serie: string; sous_series: { id: string; libelle_sous_serie: string }[] }[]>([]);
   const [sousSeries, setSousSeries] = useState<{ id: string; libelle_sous_serie: string; id_serie: string }[]>([]);
   const selectedSerie = series.find(s => s.id === form.serie);
   const filteredSousSeries = form.serie ? sousSeries.filter(ss => String(ss.id_serie) === form.serie) : [];
+  const filteredServices = form.direction
+    ? services.filter(s => String(s.direction_id) === form.direction)
+    : services;
+  const autresService = services.find(s => s.name === "Autres");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const set = (k: string, v: string | boolean) => {
@@ -289,19 +293,19 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
             <div className="field">
-              <label>Service <span className="req">*</span></label>
-              <select className={`select ${errors.service ? "error" : ""}`} value={form.service} onChange={e => set("service", e.target.value)}>
-                <option value="">— Choisir —</option>
-                {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              {errors.service && <div className="err-msg"><Icon name="alert" size={13} />{errors.service}</div>}
-            </div>
-            <div className="field">
               <label>Direction</label>
-              <select className="select" value={form.direction} onChange={e => set("direction", e.target.value)}>
+              <select className="select" value={form.direction} onChange={e => { set("direction", e.target.value); set("service", ""); }}>
                 <option value="">— Choisir —</option>
                 {directions.map(d => <option key={d.id} value={d.id}>{d.nom_direction}</option>)}
               </select>
+            </div>
+            <div className="field">
+              <label>Service <span className="req">*</span></label>
+              <select className={`select ${errors.service ? "error" : ""}`} value={form.service} onChange={e => set("service", e.target.value)}>
+                <option value="">— Choisir —</option>
+                {(filteredServices.length > 0 ? filteredServices : (autresService ? [autresService] : [])).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              {errors.service && <div className="err-msg"><Icon name="alert" size={13} />{errors.service}</div>}
             </div>
           </div>
 

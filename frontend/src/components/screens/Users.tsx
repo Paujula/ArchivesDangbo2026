@@ -5,7 +5,7 @@ import Icon from "@/components/ui/Icon";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
 import Switch from "@/components/ui/Switch";
-import { ROLES, BADGE_DOT, SERIE_DOT } from "@/lib/data";
+import { ROLES } from "@/lib/data";
 import { api, ApiError } from "@/lib/api";
 import type { AppCtx, User } from "@/lib/types";
 
@@ -49,7 +49,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
 
 
   const isAdmin = ctx.role === "chef" || ctx.role === "admin";
-  const serieNames = ctx.series.map(s => s.nom_serie);
+  const directionNames = ctx.directions;
 
   // ── Chargement initial depuis l'API ───────────────────────────────────────
 
@@ -123,7 +123,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
   const toggleDraftRight = (t: string) =>
     setDraft(d => d ? { ...d, rights: { ...d.rights, [t]: !d.rights[t] } } : d);
 
-  const blankRights = () => Object.fromEntries(serieNames.map(t => [t, false]));
+  const blankRights = () => Object.fromEntries(directionNames.map(t => [t, false]));
 
   // ── Ouverture drawer ──────────────────────────────────────────────────────
 
@@ -141,7 +141,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
       status: "actif",
       last: "Jamais connecté",
       initials: "+",
-      rights: { ...blankRights(), Courriers: true },
+      rights: { ...blankRights() },
     });
   };
 
@@ -202,7 +202,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
     setSaving(true);
     try {
       const rights = draft.role === "chef" || draft.role === "admin"
-        ? Object.fromEntries(serieNames.map(t => [t, true]))
+        ? Object.fromEntries(directionNames.map(t => [t, true]))
         : draft.rights;
 
       if (isNew) {
@@ -408,7 +408,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
                   <th>Agent</th>
                   <th style={{ width: 170 }}>Rôle</th>
                   <th style={{ width: 180 }}>Service affecté</th>
-                  <th style={{ width: 230 }}>Droits par série</th>
+                  <th style={{ width: 230 }}>Droits par direction</th>
                   <th style={{ width: 110 }}>Statut</th>
                   <th style={{ width: 70 }}>Carte</th>
                   <th style={{ width: 130 }}>Dern. connexion</th>
@@ -417,7 +417,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
               </thead>
               <tbody>
                 {shown.map(u => {
-                  const granted = serieNames.filter(t => u.rights[t]).length;
+                  const granted = directionNames.filter(t => u.rights[t]).length;
                   return (
                     <tr key={u.id} style={{ cursor: "pointer" }} onClick={() => openEdit(u)}>
                       <td>
@@ -439,15 +439,15 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
                           </span>
                         ) : (
                           <div className="row gap-2 center wrap">
-                            {serieNames.map(t => (
+                            {directionNames.map((t, i) => (
                               <span key={t} className="tip" data-tip={t} style={{
                                 width: 9, height: 9, borderRadius: 2,
-                                background: u.rights[t] ? (SERIE_DOT[t] || BADGE_DOT.neutral) : "var(--border-strong)",
+                                background: u.rights[t] ? AVATAR_COLORS[i % AVATAR_COLORS.length] : "var(--border-strong)",
                                 opacity: u.rights[t] ? 1 : .55,
                               }} />
                             ))}
                             <span className="muted-3 mono" style={{ fontSize: 11, marginLeft: 2 }}>
-                              {granted}/{serieNames.length}
+                              {granted}/{directionNames.length}
                             </span>
                           </div>
                         )}
@@ -538,7 +538,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
                     patchDraft({
                       prenom: v,
                       email: isNew
-                        ? (v.toLowerCase().replace(/[^a-z]+/gi, "").trim() + "." + draft.nom.toLowerCase().replace(/[^a-z]+/gi, "").trim() + "@dangbo.bj").replace(/\.\./g, ".")
+                        ? (v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]+/g, "").trim() + "." + draft.nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]+/g, "").trim() + "@dangbo.bj").replace(/\.\./g, ".")
                         : draft.email,
                     });
                   }}
@@ -558,7 +558,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
                     patchDraft({
                       nom: v,
                       email: isNew
-                        ? (draft.prenom.toLowerCase().replace(/[^a-z]+/gi, "").trim() + "." + v.toLowerCase().replace(/[^a-z]+/gi, "").trim() + "@dangbo.bj").replace(/\.\./g, ".")
+                        ? (draft.prenom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]+/g, "").trim() + "." + v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]+/g, "").trim() + "@dangbo.bj").replace(/\.\./g, ".")
                         : draft.email,
                     });
                   }}
@@ -726,34 +726,34 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
 
               <div className="hr" style={{ marginBottom: 18 }} />
 
-              {/* Droits par série */}
+              {/* Droits par direction */}
               <div className="row gap-2 center" style={{ marginBottom: 4 }}>
                 <Icon name="shield" size={16} className="muted" />
-                <strong style={{ fontSize: 13.5 }}>Accès par série d&apos;archive</strong>
+                <strong style={{ fontSize: 13.5 }}>Accès par direction</strong>
               </div>
               <div className="muted" style={{ fontSize: 12, marginBottom: 14 }}>
-                Activez les séries que cet agent peut rechercher et consulter.
+                Activez les directions que cet agent peut rechercher et consulter.
               </div>
 
               {draft.role === "chef" || draft.role === "admin" ? (
                 <div className="row gap-2 center" style={{ padding: "14px 16px", background: "var(--primary-tint)", borderRadius: "var(--r-md)", border: "1px solid var(--primary-soft)" }}>
                   <Icon name="shieldCheck" size={18} style={{ color: "var(--primary)" }} />
                   <span style={{ fontSize: 12.5, color: "var(--primary-strong)", fontWeight: 600 }}>
-                    Accès total à toutes les séries (rôle administrateur).
+                    Accès total à toutes les directions (rôle administrateur).
                   </span>
                 </div>
               ) : (
                 <div className="col gap-2">
-                  {serieNames.map(t => (
+                  {directionNames.map((t, i) => (
                     <div key={t} className="row between center" style={{
                       padding: "12px 14px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
                       background: draft.rights[t] ? "var(--surface-2)" : "var(--surface)",
                     }}>
                       <div className="row gap-3 center">
-                        <span style={{ width: 10, height: 10, borderRadius: 3, background: SERIE_DOT[t] || BADGE_DOT.neutral }} />
+                        <span style={{ width: 10, height: 10, borderRadius: 3, background: AVATAR_COLORS[i % AVATAR_COLORS.length] }} />
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600 }}>{t}</div>
-                          <div className="muted-3" style={{ fontSize: 11 }}>Série d&apos;archives</div>
+                          <div className="muted-3" style={{ fontSize: 11 }}>Direction</div>
                         </div>
                       </div>
                       <Switch on={!!draft.rights[t]} onClick={() => toggleDraftRight(t)} />

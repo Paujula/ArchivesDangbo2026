@@ -282,7 +282,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const canAccess = useCallback((d: Doc) => {
     if (role === 'chef' || role === 'admin') return true;
     if (d.restricted && user.service !== d.service) return false;
-    if (role === 'consultant') return !!user.rights[d.serie || d.type];
+    if (role === 'consultant') return !!user.rights[d.direction || ''];
     return true;
   }, [role, user]);
 

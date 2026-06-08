@@ -82,7 +82,7 @@ class SettingsController extends Controller
     public function listServices(): JsonResponse
     {
         return response()->json([
-            'services' => Service::all(['id', 'name']),
+            'services' => Service::with('direction:id,nom_direction')->get(['id', 'name', 'direction_id']),
         ]);
     }
 
