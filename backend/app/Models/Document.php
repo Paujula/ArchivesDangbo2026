@@ -11,7 +11,7 @@ class Document extends Model
     protected $fillable = [
         'cote', 'titre', 'analyse', 'date_enregistrement', 'statut',
         'emplacement', 'fichier', 'original_name', 'id_serie', 'id_sous_serie', 'user_id',
-        'ref', 'service_id', 'direction_id',
+        'service_id', 'direction_id',
         'format', 'pages', 'keywords', 'restricted', 'views', 'size', 'indexed_by',
     ];
 

@@ -66,7 +66,6 @@ class ArchivesController extends Controller
         if ($q = $request->get('q')) {
             $query->where(function ($qry) use ($q) {
                 $qry->where('titre', 'like', "%{$q}%")
-                    ->orWhere('ref', 'like', "%{$q}%")
                     ->orWhere('cote', 'like', "%{$q}%")
                     ->orWhere('analyse', 'like', "%{$q}%")
                     ->orWhere('emplacement', 'like', "%{$q}%")
@@ -169,13 +168,12 @@ class ArchivesController extends Controller
         $document->id_serie = $this->resolveSerieId($data['serie'] ?? null);
         $document->id_sous_serie = $this->resolveSousSerieId($data['sous_serie'] ?? null);
         $document->user_id = $request->user()->id;
-        $document->ref = Document::max('id_document') + 1 . '-' . now()->year;
         $document->fichier = $data['temp_id'] ? 'temp/' . $data['temp_id'] : null;
         $document->original_name = $data['original_name'] ?? null;
         $document->indexed_by = $request->user()->name;
         $document->save();
 
-        $this->logAction('Création du document', 'document', "Titre: {$document->titre} | Cote: {$document->cote} | Analyse: {$document->analyse} | Réf: {$document->ref} | Fichier: {$document->original_name} | Pages: {$document->pages} | Format: {$document->format} | Service: {$document->service_id}", $document->id_document);
+        $this->logAction('Création du document', 'document', "Titre: {$document->titre} | Cote: {$document->cote} | Analyse: {$document->analyse} | Fichier: {$document->original_name} | Pages: {$document->pages} | Format: {$document->format} | Service: {$document->service_id}", $document->id_document);
 
         $document->load(['service', 'direction', 'serieArchive', 'sousSerie', 'user']);
 
@@ -211,9 +209,14 @@ class ArchivesController extends Controller
             'description' => 'nullable|string',
             'temp_id' => 'nullable|string',
             'original_name' => 'nullable|string|max:255',
+            'draft' => 'nullable|boolean',
         ]);
 
         $original = $document->getOriginal();
+
+        if (array_key_exists('draft', $data)) {
+            $document->statut = $data['draft'] ? 'brouillon' : 'approuvé';
+        }
 
         if (!empty($data['temp_id'])) {
             $tempPath = 'temp/' . $data['temp_id'];
@@ -285,7 +288,7 @@ class ArchivesController extends Controller
 
     public function destroy(Document $document): JsonResponse
     {
-        $this->logAction('Suppression du document', 'document', "Cote: {$document->cote} | Titre: {$document->titre} | Analyse: {$document->analyse} | Réf: {$document->ref} | Fichier: {$document->original_name}", $document->id_document);
+        $this->logAction('Suppression du document', 'document', "Cote: {$document->cote} | Titre: {$document->titre} | Analyse: {$document->analyse} | Fichier: {$document->original_name}", $document->id_document);
 
         if ($document->fichier) {
             Storage::disk('public')->delete($document->fichier);
@@ -300,7 +303,7 @@ class ArchivesController extends Controller
     {
         $document->increment('views');
 
-        $this->logAction('Consultation du document', 'document', "Titre: {$document->titre} | Cote: {$document->cote} | Analyse: {$document->analyse} | Réf: {$document->ref} | Pages: {$document->pages} | Format: {$document->format}", $document->id_document);
+        $this->logAction('Consultation du document', 'document', "Titre: {$document->titre} | Cote: {$document->cote} | Analyse: {$document->analyse} | Pages: {$document->pages} | Format: {$document->format}", $document->id_document);
 
         return response()->json(['views' => $document->views]);
     }
@@ -347,7 +350,7 @@ class ArchivesController extends Controller
         foreach ($paths as $p) {
             if ($disk->exists($p)) {
                 if ($isSave) {
-                    $this->logAction('Téléchargement du document', 'document', "Titre: {$document->titre} | Cote: {$document->cote} | Analyse: {$document->analyse} | Réf: {$document->ref} | Fichier: {$document->original_name}", $document->id_document);
+                    $this->logAction('Téléchargement du document', 'document', "Titre: {$document->titre} | Cote: {$document->cote} | Analyse: {$document->analyse} | Fichier: {$document->original_name}", $document->id_document);
                 }
                 return $isSave
                     ? $disk->download($p, $document->original_name)
@@ -390,7 +393,6 @@ class ArchivesController extends Controller
     {
         return [
             'id' => (string) $doc->id_document,
-            'ref' => $doc->ref ?? 'DOC-' . $doc->id_document,
             'cote' => $doc->cote ?? '',
             'title' => $doc->titre,
             'date' => $doc->date_enregistrement?->toDateString() ?? '',

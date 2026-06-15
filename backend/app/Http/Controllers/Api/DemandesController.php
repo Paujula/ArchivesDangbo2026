@@ -166,6 +166,8 @@ class DemandesController extends Controller
                 'cote' => $d->document->cote ?? '',
                 'keywords' => $d->document->keywords ?? [],
                 'description' => $d->document->analyse ?? '',
+                'original_name' => $d->document->original_name ?? '',
+                'file' => $d->document->fichier ?? '',
             ] : null,
             'utilisateur' => $d->utilisateur ? [
                 'id' => (string) $d->utilisateur->id,
