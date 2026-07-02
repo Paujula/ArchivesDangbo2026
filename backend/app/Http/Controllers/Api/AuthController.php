@@ -15,6 +15,16 @@ class AuthController extends Controller
 {
     use Auditable;
 
+    private function detectBrowser(string $ua): string
+    {
+        if (str_contains($ua, 'Edg')) return 'Edge';
+        if (str_contains($ua, 'Firefox')) return 'Firefox';
+        if (str_contains($ua, 'Chrome')) return 'Chrome';
+        if (str_contains($ua, 'Safari')) return 'Safari';
+        if (str_contains($ua, 'Opera') || str_contains($ua, 'OPR')) return 'Opera';
+        return 'Inconnu';
+    }
+
     public function login(Request $request): JsonResponse
     {
         $request->validate([
@@ -25,6 +35,7 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
+            $this->logAction('tentative de connexion échoué', 'Système', "Navigateur: {$this->detectBrowser($request->userAgent())} | IP: {$request->ip()}", documentId: null, requestOrUserId: $request);
             throw ValidationException::withMessages([
                 'email' => ['Les identifiants fournis sont incorrects.'],
             ]);
@@ -46,7 +57,9 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $user = $request->user();
-        $user->currentAccessToken()->delete();
+        if ($user->currentAccessToken()) {
+            $user->currentAccessToken()->delete();
+        }
 
         $this->logAction('Déconnexion', 'authentification', "Nom: {$user->name} | Prénom: {$user->prenom} | Email: {$user->email} | Rôle: {$user->role}");
 

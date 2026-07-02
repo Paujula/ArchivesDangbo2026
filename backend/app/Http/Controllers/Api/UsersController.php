@@ -78,6 +78,7 @@ class UsersController extends Controller
             'initials' => strtoupper(
                 mb_substr($data['prenom'] ?? '', 0, 1) . mb_substr($data['nom'] ?? '', 0, 1)
             ),
+            'email_verified_at' => now(),
         ]);
 
         $this->logAction('Création de l\'utilisateur', 'utilisateur', "Utilisateur: {$data['prenom']} {$data['nom']} | Email: {$data['email']} | Rôle: {$data['role']} | Tél: {$data['telephone']} | Adresse: {$data['adresse']} | Service: {$data['service']} | Direction: {$data['direction']} | Statut: {$data['statut_matrimoniale']} | Carte: " . ($cartePath ? 'Téléchargée' : 'Non fournie'));
@@ -160,6 +161,14 @@ class UsersController extends Controller
 
     public function deactivate(User $user): JsonResponse
     {
+        $authUser = request()->user();
+        if ($authUser->id === $user->id) {
+            return response()->json(['message' => 'Vous ne pouvez pas désactiver votre propre compte.'], 403);
+        }
+        if ($user->role === 'admin' && User::where('role', 'admin')->whereNotNull('email_verified_at')->count() <= 1) {
+            return response()->json(['message' => 'Impossible de désactiver le dernier administrateur.'], 403);
+        }
+
         $user->email_verified_at = null;
         $user->save();
         $user->tokens()->delete();
@@ -184,6 +193,14 @@ class UsersController extends Controller
 
     public function destroy(User $user): JsonResponse
     {
+        $authUser = request()->user();
+        if ($authUser->id === $user->id) {
+            return response()->json(['message' => 'Vous ne pouvez pas supprimer votre propre compte.'], 403);
+        }
+        if ($user->role === 'admin' && User::where('role', 'admin')->whereNotNull('email_verified_at')->count() <= 1) {
+            return response()->json(['message' => 'Impossible de supprimer le dernier administrateur.'], 403);
+        }
+
         $this->logAction('Suppression de l\'utilisateur', 'utilisateur', "Utilisateur: {$user->prenom} {$user->name} | Email: {$user->email} | Rôle: " . $this->mapRole($user->role) . " | Service: {$user->service} | Direction: {$user->direction} | Carte: " . ($user->carte ? 'Disponible' : 'Non fournie'));
 
         if ($user->carte) {

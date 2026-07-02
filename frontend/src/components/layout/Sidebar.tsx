@@ -9,7 +9,7 @@ const NAV = [
   {
     group: "Principal",
     items: [
-      { key: "dashboard" as Route, icon: "dashboard", label: "Tableau de bord",      roles: ["chef", "admin", "consultant"] },
+      { key: "dashboard" as Route, icon: "dashboard", label: "Tableau de bord",      roles: ["chef", "admin", "consultant", "saisisseur"] },
       { key: "search"    as Route, icon: "search",    label: "Recherche et Fonds",     roles: ["chef", "admin", "saisisseur", "consultant"] },
     ],
   },

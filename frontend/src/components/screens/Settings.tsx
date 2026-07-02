@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Icon from "@/components/ui/Icon";
+import Confirm from "@/components/ui/Confirm";
 import { ROLES } from "@/lib/data";
 import type { AppCtx } from "@/lib/types";
 
@@ -20,11 +21,14 @@ function AddInline({ placeholder, onAdd, btn = "Ajouter" }: {
 }
 
 export default function Settings({ ctx }: { ctx: AppCtx }) {
-  const { services, cfg, sousSeries, series } = ctx;
-  const [tab, setTab] = useState<"services" | "series" | "directions">("services");
+  const { services, serviceDirections, cfg, sousSeries, series, directions } = ctx;
+  const [tab, setTab] = useState<"directions" | "services" | "series">("directions");
   const [newSerieNom, setNewSerieNom] = useState("");
   const [newSerieSous, setNewSerieSous] = useState("");
   const [newSousSerie, setNewSousSerie] = useState("");
+  const [newServiceDir, setNewServiceDir] = useState("");
+  const [newServiceName, setNewServiceName] = useState("");
+  const [confirm, setConfirm] = useState<{ msg: string; onConfirm: () => void } | null>(null);
 
   if (ctx.role !== "chef" && ctx.role !== "admin") {
     return (
@@ -46,12 +50,22 @@ export default function Settings({ ctx }: { ctx: AppCtx }) {
   }
 
   const removeService = (s: string) => {
-    cfg.removeService(s);
-    ctx.toast({ tone: "gold", title: "Service retiré", body: s + " a été retiré de la nomenclature." });
+    setConfirm({ msg: `Voulez-vous vraiment supprimer le service "${s}" ?`, onConfirm: () => {
+      cfg.removeService(s);
+      ctx.toast({ title: "Service supprimé avec succès", body: s + " a été retiré de la nomenclature." });
+    }});
   };
-  const addService = (s: string) => {
-    cfg.addService(s);
+  const addService = () => {
+    const s = newServiceName.trim();
+    if (!s) return;
+    if (!newServiceDir) {
+      ctx.toast({ tone: "danger", title: "Direction requise", body: "Vous devez obligatoirement choisir une direction." });
+      return;
+    }
+    cfg.addService(s, newServiceDir);
     ctx.toast({ title: "Service ajouté", body: s + " est désormais sélectionnable." });
+    setNewServiceName("");
+    setNewServiceDir("");
   };
 
   return (
@@ -68,16 +82,57 @@ export default function Settings({ ctx }: { ctx: AppCtx }) {
 
       {/* Tabs */}
       <div className="seg" style={{ marginBottom: "var(--gap-grid)" }}>
+        <button className={tab === "directions" ? "on" : ""} onClick={() => setTab("directions")}>
+          <Icon name="drive" size={15} /> Directions
+        </button>
         <button className={tab === "services" ? "on" : ""} onClick={() => setTab("services")}>
           <Icon name="building" size={15} /> Services
         </button>
         <button className={tab === "series" ? "on" : ""} onClick={() => setTab("series")}>
           <Icon name="folder" size={15} /> Cadre de classement
         </button>
-        <button className={tab === "directions" ? "on" : ""} onClick={() => setTab("directions")}>
-          <Icon name="drive" size={15} /> Directions
-        </button>
       </div>
+
+      {tab === "directions" && (
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(360px, 440px) 1fr", gap: "var(--gap-grid)", alignItems: "start" }}>
+          <div className="card card-pad">
+            <div className="row gap-2 center" style={{ marginBottom: 4 }}>
+              <div className="s-ico" style={{ width: 30, height: 30, background: "var(--slate-soft)", color: "var(--slate)" }}>
+                <Icon name="drive" size={16} />
+              </div>
+              <strong style={{ fontSize: 14.5 }}>Directions</strong>
+              <span className="badge badge-neutral" style={{ marginLeft: "auto" }}>{ctx.directions.length}</span>
+            </div>
+            <div className="muted" style={{ fontSize: 12.5, margin: "6px 0 14px" }}>
+              Directions administratives de la mairie.
+            </div>
+
+            <div className="col" style={{ border: "1px solid var(--border)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
+              {ctx.directions.length === 0 && <div className="muted-3" style={{ padding: 14, fontSize: 12.5 }}>Aucune direction.</div>}
+              {ctx.directions.map((d, i) => (
+                <div key={d} className="row between center"
+                  style={{ padding: "11px 13px", borderBottom: i < ctx.directions.length - 1 ? "1px solid var(--border)" : "none" }}>
+                  <div className="row gap-3 center" style={{ minWidth: 0 }}>
+                    <Icon name="drive" size={15} className="muted-3" />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{d}</span>
+                  </div>
+                  <button className="ra-btn danger tip" data-tip="Retirer" onClick={() => setConfirm({ msg: `Voulez-vous vraiment supprimer la direction "${d}" ?`, onConfirm: () => {
+                    cfg.removeDirection(d);
+                    ctx.toast({ title: "Direction supprimée avec succès", body: d + " a été retirée." });
+                  }})}>
+                    <Icon name="trash" size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <AddInline placeholder="Nom de la nouvelle direction…" onAdd={(n) => {
+              cfg.addDirection(n);
+              ctx.toast({ title: "Direction ajoutée", body: n + " est désormais sélectionnable." });
+            }} />
+          </div>
+          <div />
+        </div>
+      )}
 
       {tab === "services" && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(360px, 440px) 1fr", gap: "var(--gap-grid)", alignItems: "start" }}>
@@ -97,9 +152,14 @@ export default function Settings({ ctx }: { ctx: AppCtx }) {
               {services.map((s, i) => (
                 <div key={s} className="row between center"
                   style={{ padding: "11px 13px", borderBottom: i < services.length - 1 ? "1px solid var(--border)" : "none" }}>
-                  <div className="row gap-3 center" style={{ minWidth: 0 }}>
+                  <div className="row gap-2 center" style={{ minWidth: 0, flex: 1 }}>
                     <Icon name="building" size={15} className="muted-3" />
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{s}</span>
+                    {serviceDirections[s] && (
+                      <span className="badge badge-neutral" style={{ fontSize: 10, marginLeft: 6 }}>
+                        {serviceDirections[s]}
+                      </span>
+                    )}
                   </div>
                   <button className="ra-btn danger tip" data-tip="Retirer" onClick={() => removeService(s)}>
                     <Icon name="trash" size={15} />
@@ -107,7 +167,23 @@ export default function Settings({ ctx }: { ctx: AppCtx }) {
                 </div>
               ))}
             </div>
-            <AddInline placeholder="Nom du nouveau service…" onAdd={addService} />
+
+            {/* Ajout d'un service avec direction obligatoire */}
+            <div style={{ marginTop: 14, padding: 12, border: "1px dashed var(--border-strong)", borderRadius: "var(--r-md)", background: "var(--surface-2)" }}>
+              <strong style={{ fontSize: 13, display: "block", marginBottom: 10 }}>Ajouter un service</strong>
+              <div className="col gap-2">
+                <select className="select" value={newServiceDir} onChange={e => setNewServiceDir(e.target.value)}>
+                  <option value="">— Direction obligatoire —</option>
+                  {directions.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <input className="input" placeholder="Nom du nouveau service…" value={newServiceName}
+                  onChange={e => setNewServiceName(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addService()} />
+                <button className="btn btn-soft" onClick={addService}>
+                  <Icon name="plus" size={16} />Ajouter
+                </button>
+              </div>
+            </div>
           </div>
           <div />
         </div>
@@ -137,10 +213,10 @@ export default function Settings({ ctx }: { ctx: AppCtx }) {
                     <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.nom_serie}</span>
                     <span className="muted-3" style={{ fontSize: 11 }}>({s.sous_series.length} ss-sér.)</span>
                   </div>
-                  <button className="ra-btn danger" onClick={() => {
+                  <button className="ra-btn danger" onClick={() => setConfirm({ msg: `Voulez-vous vraiment supprimer la série "${s.nom_serie}" ?`, onConfirm: () => {
                     cfg.removeSerie(s.id);
-                    ctx.toast({ tone: "gold", title: "Série retirée", body: s.nom_serie });
-                  }}><Icon name="trash" size={14} /></button>
+                    ctx.toast({ title: "Série supprimée avec succès", body: s.nom_serie + " a été retirée." });
+                  }})}><Icon name="trash" size={14} /></button>
                 </div>
               ))}
             </div>
@@ -186,10 +262,10 @@ export default function Settings({ ctx }: { ctx: AppCtx }) {
                       <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.libelle_sous_serie}</span>
                       {parent && <span className="badge badge-neutral" style={{ fontSize: 10 }}>{parent.nom_serie}</span>}
                     </div>
-                    <button className="ra-btn danger" onClick={() => {
+                    <button className="ra-btn danger" onClick={() => setConfirm({ msg: `Voulez-vous vraiment supprimer la sous-série "${s.libelle_sous_serie}" ?`, onConfirm: () => {
                       cfg.removeSousSerie(s.id);
-                      ctx.toast({ tone: "gold", title: "Sous-série retirée", body: s.libelle_sous_serie });
-                    }}><Icon name="trash" size={14} /></button>
+                      ctx.toast({ title: "Sous-série supprimée avec succès", body: s.libelle_sous_serie + " a été retirée." });
+                    }})}><Icon name="trash" size={14} /></button>
                   </div>
                 );
               })}
@@ -218,53 +294,20 @@ export default function Settings({ ctx }: { ctx: AppCtx }) {
         </div>
       )}
 
-      {tab === "directions" && (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(360px, 440px) 1fr", gap: "var(--gap-grid)", alignItems: "start" }}>
-          <div className="card card-pad">
-            <div className="row gap-2 center" style={{ marginBottom: 4 }}>
-              <div className="s-ico" style={{ width: 30, height: 30, background: "var(--slate-soft)", color: "var(--slate)" }}>
-                <Icon name="drive" size={16} />
-              </div>
-              <strong style={{ fontSize: 14.5 }}>Directions</strong>
-              <span className="badge badge-neutral" style={{ marginLeft: "auto" }}>{ctx.directions.length}</span>
-            </div>
-            <div className="muted" style={{ fontSize: 12.5, margin: "6px 0 14px" }}>
-              Directions administratives de la mairie.
-            </div>
-
-            <div className="col" style={{ border: "1px solid var(--border)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
-              {ctx.directions.length === 0 && <div className="muted-3" style={{ padding: 14, fontSize: 12.5 }}>Aucune direction.</div>}
-              {ctx.directions.map((d, i) => (
-                <div key={d} className="row between center"
-                  style={{ padding: "11px 13px", borderBottom: i < ctx.directions.length - 1 ? "1px solid var(--border)" : "none" }}>
-                  <div className="row gap-3 center" style={{ minWidth: 0 }}>
-                    <Icon name="drive" size={15} className="muted-3" />
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{d}</span>
-                  </div>
-                  <button className="ra-btn danger tip" data-tip="Retirer" onClick={() => {
-                    cfg.removeDirection(d);
-                    ctx.toast({ tone: "gold", title: "Direction retirée", body: d + " a été retirée." });
-                  }}>
-                    <Icon name="trash" size={15} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <AddInline placeholder="Nom de la nouvelle direction…" onAdd={(n) => {
-              cfg.addDirection(n);
-              ctx.toast({ title: "Direction ajoutée", body: n + " est désormais sélectionnable." });
-            }} />
-          </div>
-          <div />
-        </div>
-      )}
-
       <div className="card card-pad" style={{ marginTop: "var(--gap-grid)", display: "flex", alignItems: "center", gap: 12, background: "var(--primary-tint)", borderColor: "var(--primary-soft)" }}>
         <Icon name="info" size={18} style={{ color: "var(--primary)", flex: "0 0 auto" }} />
         <span style={{ fontSize: 12.5, color: "var(--primary-strong)" }}>
           Toute modification de la nomenclature est répercutée immédiatement dans les filtres de recherche, le formulaire de numérisation et la matrice des droits d&apos;accès.
         </span>
       </div>
+
+      {confirm && (
+        <Confirm
+          msg={confirm.msg}
+          onConfirm={() => { confirm.onConfirm(); setConfirm(null); }}
+          onCancel={() => { ctx.toast({ title: "Suppression annulée", body: "Aucune modification." }); setConfirm(null); }}
+        />
+      )}
     </div>
   );
 }

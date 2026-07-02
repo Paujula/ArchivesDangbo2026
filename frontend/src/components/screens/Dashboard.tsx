@@ -58,9 +58,9 @@ export default function Dashboard({ ctx }: { ctx: AppCtx }) {
   useEffect(() => {
     api.dashboard.stats()
       .then(setStats)
-      .catch(() => {})
+      .catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les statistiques." }))
       .finally(() => setLoading(false));
-  }, []);
+  }, [ctx]);
 
   const canValidate = ctx.role === "chef" || ctx.role === "admin";
 

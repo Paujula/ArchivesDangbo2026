@@ -5,6 +5,7 @@ import Icon from "@/components/ui/Icon";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
 import Switch from "@/components/ui/Switch";
+import Confirm from "@/components/ui/Confirm";
 import { ROLES } from "@/lib/data";
 import { api, ApiError } from "@/lib/api";
 import type { AppCtx, User } from "@/lib/types";
@@ -46,6 +47,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
   const [cartePrev,  setCartePrev] = useState<string | null>(null);
   const [errors,    setErrors]    = useState<Record<string, string>>({});
   const [filter,    setFilter]    = useState("tous");
+  const [cardViewer, setCardViewer] = useState<User | null>(null);
 
 
   const isAdmin = ctx.role === "chef" || ctx.role === "admin";
@@ -327,6 +329,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
   // ── Révoquer accès (désactiver depuis le drawer) ──────────────────────────
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirm, setConfirm] = useState<{ msg: string; onConfirm: () => void } | null>(null);
 
   const deleteUser = async () => {
     if (!draft || isNew) return;
@@ -357,6 +360,16 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  // ── Téléchargement carte ─────────────────────────────────────────────────
+
+  const downloadCard = (u: User) => {
+    const ext = u.carte.match(/\.(\w+)(\?|$)/)?.[1] || "jpg";
+    const a = document.createElement("a");
+    a.href = u.carte;
+    a.download = `carte-${u.prenom || ""}-${u.nom || u.name || u.id}.${ext}`.replace(/\s+/g, "-").replace(/-+$/, "");
+    a.click();
   };
 
   // ── Filtrage ──────────────────────────────────────────────────────────────
@@ -465,7 +478,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
                       </td>
                       <td>
                         {u.carte ? (
-                          <div className="tip" data-tip="Ouvrir la carte d'identité" onClick={e => { e.stopPropagation(); window.open(u.carte, '_blank'); }} style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <div className="tip" data-tip="Ouvrir la carte d'identité" onClick={e => { e.stopPropagation(); setCardViewer(u); }} style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
                             <div style={{ width: 28, height: 20, borderRadius: 3, overflow: "hidden", border: "1px solid var(--border)", background: "#f5f5f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
                               {u.carte.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) ? (
                                 <img src={u.carte} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -481,16 +494,9 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
                       </td>
                       <td><span className="muted mono" style={{ fontSize: 11.5 }}>{u.last}</span></td>
                       <td onClick={e => e.stopPropagation()}>
-                        <div className="row gap-1 center">
-                          <button className="ra-btn tip" data-tip="Modifier" onClick={() => openEdit(u)}>
-                            <Icon name="settings" size={16} />
-                          </button>
-                          {u.status === "actif" && (
-                            <button className="ra-btn tip" data-tip="Révoquer l'accès" style={{ color: "var(--danger-deep)" }} onClick={() => toggleStatus(u)}>
-                              <Icon name="x" size={16} />
-                            </button>
-                          )}
-                        </div>
+                        <button className="ra-btn tip" data-tip="Modifier" onClick={() => openEdit(u)}>
+                          <Icon name="settings" size={16} />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -521,7 +527,6 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
                   </div>
                 </div>
               </div>
-              <button className="icon-btn" onClick={() => setDraft(null)}><Icon name="x" size={18} /></button>
             </div>
 
             <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
@@ -729,7 +734,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
               {/* Droits par direction */}
               <div className="row gap-2 center" style={{ marginBottom: 4 }}>
                 <Icon name="shield" size={16} className="muted" />
-                <strong style={{ fontSize: 13.5 }}>Accès par direction</strong>
+                <strong style={{ fontSize: 13.5 }}>Modalité par direction</strong>
               </div>
               <div className="muted" style={{ fontSize: 12, marginBottom: 14 }}>
                 Activez les directions que cet agent peut rechercher et consulter.
@@ -762,57 +767,101 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
                 </div>
               )}
 
-              <div className="hr" style={{ margin: "22px 0 18px" }} />
-
-              {/* Statut compte */}
-              <div className="row between center" style={{ padding: "12px 14px", border: "1px solid var(--border)", borderRadius: "var(--r-md)" }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>Compte actif</div>
-                  <div className="muted-3" style={{ fontSize: 11 }}>Autorise la connexion de l&apos;agent</div>
-                </div>
-                <Switch
-                  on={draft.status === "actif"}
-                  onClick={() => patchDraft({ status: draft.status === "actif" ? "inactif" : "actif" })}
-                />
-              </div>
             </div>
 
             {/* Footer drawer */}
-            <div className="row between center gap-3" style={{ padding: "14px 20px", borderTop: "1px solid var(--border)" }}>
-              {isNew ? (
+            <div className="row gap-2" style={{ padding: "14px 20px", borderTop: "1px solid var(--border)", flexWrap: "wrap", justifyContent: "space-between" }}>
+              <div className="row gap-2" style={{ flexWrap: "wrap" }}>
                 <button className="btn btn-ghost btn-sm" onClick={() => setDraft(null)}>Annuler</button>
-              ) : (
-                <div className="row gap-2">
-                  {confirmDelete ? (
-                    <div className="row gap-2 center">
-                      <span style={{ fontSize: 12, color: "var(--danger-deep)", fontWeight: 600 }}>Confirmer ?</span>
-                      <button className="btn btn-sm" style={{ background: "var(--danger-deep)", color: "#fff" }} onClick={deleteUser} disabled={saving}>
-                        {saving ? "Suppression…" : "Oui, supprimer"}
-                      </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>Annuler</button>
-                    </div>
-                  ) : (
-                    <>
-                      <button className="btn btn-ghost btn-sm" style={{ color: "var(--danger-deep)" }} onClick={() => setConfirmDelete(true)}>
-                        <Icon name="trash" size={15} />Supprimer définitivement
-                      </button>
-                      <button className="btn btn-ghost btn-sm" style={{ color: "var(--danger-deep)" }} onClick={revokeAccess} disabled={saving}>
-                        <Icon name="x" size={15} />Révoquer l&apos;accès
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-              <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
+                {!isNew && (
+                  <>
+                    <button className="btn btn-ghost btn-sm" style={{ color: "var(--danger-deep)" }} onClick={() => setConfirm({
+                      msg: `Voulez-vous vraiment supprimer l'utilisateur "${draft.prenom ? `${draft.prenom} ${draft.nom}` : draft.name}" ?`,
+                      onConfirm: deleteUser,
+                    })}>
+                      <Icon name="trash" size={15} />Supprimer un utilisateur
+                    </button>
+                    <button className="btn btn-ghost btn-sm" style={{ color: "var(--danger-deep)" }} onClick={() => {
+                      if (draft.status === "inactif") {
+                        ctx.toast({ tone: "gold", title: "Compte déjà désactivé", body: "Ce compte a déjà été désactivé." });
+                        return;
+                      }
+                      setConfirm({
+                        msg: `Voulez-vous vraiment désactiver le compte de "${draft.prenom ? `${draft.prenom} ${draft.nom}` : draft.name}" ?`,
+                        onConfirm: revokeAccess,
+                      });
+                    }} disabled={saving}>
+                      <Icon name="x" size={15} />Désactiver le compte
+                    </button>
+                  </>
+                )}
+              </div>
+              <button className="btn btn-primary btn-sm" style={{ flexShrink: 0 }} onClick={isNew ? save : () => setConfirm({
+                msg: `Voulez-vous vraiment modifier l'utilisateur "${draft?.prenom ? `${draft.prenom} ${draft.nom}` : draft?.name}" ?`,
+                onConfirm: save,
+              })} disabled={saving}>
                 {saving
                   ? "Enregistrement…"
-                  : <><Icon name={isNew ? "plus" : "check"} size={15} />{isNew ? "Créer l'agent" : "Enregistrer"}</>}
+                  : <><Icon name={isNew ? "plus" : "check"} size={15} />{isNew ? "Créer l'agent" : "Modifier"}</>}
               </button>
             </div>
           </div>
         </>
       )}
 
+      {/* ── Visionneuse carte d'identité ─────────────────────────────── */}
+      {cardViewer && (
+        <>
+          <div className="drawer-overlay" onClick={() => setCardViewer(null)} />
+          <div className="drawer" style={{ maxWidth: 700 }}>
+            <div className="row between center" style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
+              <div className="row gap-3 center">
+                <Avatar
+                  name={cardViewer.prenom ? `${cardViewer.prenom} ${cardViewer.nom}` : cardViewer.name}
+                  initials={cardViewer.initials}
+                  color={cardViewer.color}
+                  size={36}
+                />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>Carte d&apos;identité — {cardViewer.prenom ? `${cardViewer.prenom} ${cardViewer.nom}` : cardViewer.name}</div>
+                  <div className="muted-3 mono" style={{ fontSize: 11 }}>{cardViewer.email}</div>
+                </div>
+              </div>
+              <button className="icon-btn" onClick={() => setCardViewer(null)}><Icon name="x" size={18} /></button>
+            </div>
+            <div style={{ flex: 1, overflow: "auto", padding: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
+              {cardViewer.carte.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) ? (
+                <img
+                  src={cardViewer.carte}
+                  alt="Carte d'identité"
+                  style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain", borderRadius: "var(--r-md)", boxShadow: "0 2px 12px rgba(0,0,0,.12)" }}
+                />
+              ) : (
+                <iframe
+                  src={cardViewer.carte}
+                  title="Carte d'identité"
+                  style={{ width: "100%", height: "65vh", border: "none", borderRadius: "var(--r-md)" }}
+                />
+              )}
+              <div className="row gap-3 center" style={{ marginTop: 20 }}>
+                <button className="btn btn-ghost" onClick={() => setCardViewer(null)}>Fermer</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {confirm && (
+        <Confirm
+          msg={confirm.msg}
+          onConfirm={() => { confirm.onConfirm(); setConfirm(null); }}
+          onCancel={() => {
+            const isDelete = confirm.msg.toLowerCase().includes("supprimer");
+            ctx.toast({ title: isDelete ? "Suppression annulée" : "Modification annulée", body: "Aucune modification." });
+            setConfirm(null);
+          }}
+        />
+      )}
     </div>
   );
 }

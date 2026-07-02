@@ -43,6 +43,7 @@ const ACTION_TONES: Record<string, string> = {
   "Suppression de la série": "danger",
   Connexion: "blue",
   Déconnexion: "slate",
+  "tentative de connexion échoué": "danger",
   "Changement de mot de passe": "gold",
 };
 
@@ -107,9 +108,6 @@ export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
             </button>
           ))}
         </div>
-        <div className="muted-3" style={{ fontSize: 12, display: "flex", alignItems: "center" }}>
-          <Icon name="info" size={14} style={{ marginRight: 6 }} />Journal d&apos;audit inviolable
-        </div>
       </div>
 
       <div className="card" style={{ overflow: "hidden" }}>
@@ -142,7 +140,7 @@ export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
                       {e.user ? (
                         <span style={{ fontSize: 12, fontWeight: 500 }}>{e.user.prenom} {e.user.name}</span>
                       ) : (
-                        <span className="muted-3">—</span>
+                        <span className="muted-3">Utilisateur inconnue</span>
                       )}
                     </td>
                     <td>
@@ -162,7 +160,7 @@ export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
                               {changes.length > 0 && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                                   {changes.map((d, i) => (
-                                    <div key={i} style={{ fontSize: 11.5, whiteSpace: "nowrap" }}>
+                                    <div key={i} style={{ fontSize: 11.5, overflowWrap: "break-word" }}>
                                       <span className="muted" style={{ minWidth: 80, display: "inline-block" }}>{d.label}:</span>
                                       <span style={{ fontWeight: 600 }}>{d.value}</span>
                                     </div>
@@ -181,7 +179,7 @@ export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
                             return (
                               <div className="row gap-2 wrap" style={{ gap: 3 }}>
                                 {identity.concat(parsed.filter(d => d.label === "Analyse")).map((d, i) => (
-                                  <span key={i} className="badge badge-ghost" style={{ whiteSpace: "nowrap", fontWeight: 400 }}>
+                                  <span key={i} className="badge badge-ghost" style={{ overflowWrap: "break-word", fontWeight: 400 }}>
                                     <span className="muted">{d.label === "Analyse" ? "Mot clé" : d.label}:</span>&nbsp;{d.value}
                                   </span>
                                 ))}
@@ -201,7 +199,7 @@ export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
                                       const oldVal = d.value.slice(0, arrowIdx).trim();
                                       const newVal = d.value.slice(arrowIdx + 1).trim();
                                       return (
-                                        <div key={i} style={{ fontSize: 11.5, whiteSpace: "nowrap" }}>
+                                        <div key={i} style={{ fontSize: 11.5, overflowWrap: "break-word" }}>
                                           <span className="muted" style={{ minWidth: 80, display: "inline-block" }}>{d.label}:</span>
                                           <span style={{ textDecoration: "line-through", opacity: 0.6, marginRight: 6 }}>{oldVal}</span>
                                           <span style={{ fontWeight: 600 }}>{newVal}</span>

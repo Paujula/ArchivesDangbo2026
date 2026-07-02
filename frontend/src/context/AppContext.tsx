@@ -60,7 +60,7 @@ function firstRoute(role: Role): Route {
 const ALLOWED_ROUTES: Record<Role, Route[]> = {
   admin:      ['dashboard', 'search', 'ingest', 'viewer', 'users', 'settings', 'historique'],
   chef:       ['dashboard', 'search', 'ingest', 'viewer', 'users', 'settings', 'documents', 'demandes'],
-  saisisseur: ['search', 'ingest', 'viewer', 'my-documents', 'demandes'],
+  saisisseur: ['dashboard', 'search', 'ingest', 'viewer', 'my-documents', 'demandes'],
   consultant: ['dashboard', 'search', 'viewer', 'demandes'],
 };
 
@@ -78,6 +78,7 @@ interface AppState {
 
   collapsed:   boolean;
   services:    string[];
+  serviceDirections: Record<string, string>;
   directions:  string[];
   series:      SerieItem[];
   sousSeries:  SousSerieItem[];
@@ -121,10 +122,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activeDoc,   setActiveDoc]   = useState<Doc | null>(null);
   const [viewerTab,   setViewerTab]   = useState('meta');
   const [lastList,    setLastList]    = useState<Route>('search');
+  const [searchQ,       setSearchQ]       = useState('');
+  const [searchDocs,    setSearchDocs]     = useState<Doc[]>([]);
+  const [searchTotal,   setSearchTotal]    = useState(0);
+  const [searchSort,    setSearchSort]     = useState('recent');
+  const [hasSearched,   setHasSearched]    = useState(false);
   const [toasts,      setToasts]      = useState<Toast[]>([]);
 
   const [collapsed,   setCollapsed]   = useState(false);
   const [services,    setServices]    = useState<string[]>([]);
+  const [serviceDirections, setServiceDirections] = useState<Record<string, string>>({});
   const [directions,  setDirections]  = useState<string[]>([]);
   const [series,      setSeries]      = useState<SerieItem[]>([]);
   const [sousSeries,  setSousSeries]  = useState<SousSerieItem[]>([]);
@@ -137,6 +144,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Nécessaires pour passer les IDs aux endpoints DELETE/PUT
 
   const serviceIdsRef = useRef<Map<string, string>>(new Map()); // nom service → UUID
+  const serviceDirectionRef = useRef<Map<string, string>>(new Map()); // nom service → nom direction
   const sousSerieIdsRef = useRef<Map<string, string>>(new Map()); // libelle_sous_serie → UUID
   const serieIdsRef     = useRef<Map<string, string>>(new Map()); // nom_serie → UUID
   const directionIdsRef = useRef<Map<string, string>>(new Map()); // nom_direction → UUID
@@ -154,13 +162,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       // Reconstruire serviceIdsRef + état
       const svcMap = new Map<string, string>();
+      const svcDirMap = new Map<string, string>();
       const svcNames: string[] = [];
       for (const s of svcList) {
         svcMap.set(s.name, s.id);
+        svcDirMap.set(s.name, s.direction?.nom_direction ?? '');
         svcNames.push(s.name);
       }
       serviceIdsRef.current = svcMap;
+      serviceDirectionRef.current = svcDirMap;
       setServices(svcNames);
+      setServiceDirections(Object.fromEntries(svcDirMap));
 
       // Directions
       const dirMap = new Map<string, string>();
@@ -232,6 +244,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRoleState(u.role);
     setAuthed(true);
     setRoute(firstRoute(u.role));
+    clearSearch();
     loadNomenclature(); // pas d'await : se charge en arrière-plan
   }, [loadNomenclature]);
 
@@ -243,12 +256,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUser(EMPTY_USER);
     setRoleState('chef');
     setRoute('search');
+    clearSearch();
+    setActiveDoc(null);
+    setViewerTab('meta');
     // Vider la nomenclature et les refs
     setServices([]);
+    setServiceDirections({});
     setDirections([]);
     setSeries([]);
     setSousSeries([]);
     serviceIdsRef.current = new Map();
+    serviceDirectionRef.current = new Map();
     sousSerieIdsRef.current = new Map();
     serieIdsRef.current     = new Map();
     directionIdsRef.current = new Map();
@@ -303,6 +321,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     toast({ tone: 'danger', title: 'Accès refusé', body: 'Document hors de votre périmètre d\'autorisation. Tentative journalisée.' });
   }, []);
 
+  // ── Recherche persistante ──────────────────────────────────────────────────
+
+  const setSearch = useCallback((q: string, docs: Doc[], total: number, sort: string) => {
+    setSearchQ(q);
+    setSearchDocs(docs);
+    setSearchTotal(total);
+    setSearchSort(sort);
+    setHasSearched(true);
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setSearchQ('');
+    setSearchDocs([]);
+    setSearchTotal(0);
+    setSearchSort('recent');
+    setHasSearched(false);
+  }, []);
+
   // ── Toasts ────────────────────────────────────────────────────────────────
 
   const toast = useCallback((t: Omit<Toast, 'id'>) => {
@@ -318,14 +354,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // ── Services ──────────────────────────────────────────────────────────
 
-    addService: (n) => {
+    addService: (n, directionName) => {
+      if (!directionName) return;
+      const directionId = directionIdsRef.current.get(directionName);
+      if (!directionId) return;
       setServices(s => s.includes(n) ? s : [...s, n]);
-      api.settings.createService(n)
+      serviceDirectionRef.current.set(n, directionName);
+      api.settings.createService(n, directionId)
         .then(({ service }) => {
           serviceIdsRef.current.set(service.name, service.id);
         })
         .catch((err) => {
           setServices(s => s.filter(x => x !== n));
+          serviceDirectionRef.current.delete(n);
           toast({ tone: 'danger', title: 'Erreur', body: err?.message ?? 'Impossible de créer le service.' });
         });
     },
@@ -496,14 +537,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const ctx: AppCtx = {
     role, user, navigate, openDoc, denyAccess, canAccess, canEdit, toast,
     activeDoc, viewerTab, lastList: lastList as Route,
-    services, directions, series, sousSeries, cfg,
+    searchQ, searchDocs, searchTotal, searchSort, hasSearched, setSearch, clearSearch,
+    services, serviceDirections, directions, series, sousSeries, cfg,
     refreshActiveDoc,
   };
 
   const value: AppState = {
     authed, authLoading, role, route, activeDoc, viewerTab,
     lastList: lastList as Route, toasts,
-    collapsed, services, directions, series, sousSeries,
+    collapsed, services, serviceDirections, directions, series, sousSeries,
     userMenuOpen, roleMenuOpen, changePwOpen,
     login, logout, setRole, navigate, openDoc, denyAccess, canAccess, canEdit, toast,
     setCollapsed, setUserMenuOpen, setRoleMenuOpen, setChangePwOpen,

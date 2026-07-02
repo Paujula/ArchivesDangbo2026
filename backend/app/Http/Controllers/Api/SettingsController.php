@@ -9,6 +9,7 @@ use App\Models\Service;
 use App\Models\SousSerie;
 use App\Traits\Auditable;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -50,10 +51,13 @@ class SettingsController extends Controller
 
     public function deleteDirection(Direction $direction): JsonResponse
     {
-        $this->logAction('Suppression de la direction', 'settings', "Nom: {$direction->nom_direction}");
-        $direction->delete();
-
-        return response()->json(['message' => 'Direction supprimée avec succès.']);
+        try {
+            $direction->delete();
+            $this->logAction('Suppression de la direction', 'settings', "Nom: {$direction->nom_direction}");
+            return response()->json(['message' => 'Direction supprimée avec succès.']);
+        } catch (QueryException) {
+            return response()->json(['message' => 'Impossible de supprimer : des documents sont liés à cette direction.'], 409);
+        }
     }
 
     public function listSeries(): JsonResponse
@@ -88,23 +92,47 @@ class SettingsController extends Controller
 
     public function createService(Request $request): JsonResponse
     {
-        $data = $request->validate(['name' => 'required|string|max:255']);
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'direction_id' => 'required|exists:directions,id',
+        ]);
         $service = Service::create($data);
+        $service->load('direction:id,nom_direction');
 
-        $this->logAction('Création du service', 'settings', "Nom: {$service->name} | Direction: {$service->direction_id}");
+        $this->logAction('Création du service', 'settings', "Nom: {$service->name} | Direction ID: {$service->direction_id}");
 
         return response()->json([
-            'service' => ['id' => $service->id, 'name' => $service->name],
+            'service' => ['id' => $service->id, 'name' => $service->name, 'direction_id' => $service->direction_id],
             'message' => 'Service créé avec succès.',
         ], 201);
     }
 
+    public function updateService(Request $request, Service $service): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'direction_id' => 'required|exists:directions,id',
+        ]);
+        $service->update($data);
+        $service->load('direction:id,nom_direction');
+
+        $this->logAction('Modification du service', 'settings', "Nouveau nom: {$service->name} | Direction ID: {$service->direction_id}");
+
+        return response()->json([
+            'service' => ['id' => $service->id, 'name' => $service->name, 'direction_id' => $service->direction_id],
+            'message' => 'Service modifié avec succès.',
+        ]);
+    }
+
     public function deleteService(Service $service): JsonResponse
     {
-        $this->logAction('Suppression du service', 'settings', "Nom: {$service->name} | Direction: {$service->direction_id}");
-        $service->delete();
-
-        return response()->json(['message' => 'Service supprimé avec succès.']);
+        try {
+            $service->delete();
+            $this->logAction('Suppression du service', 'settings', "Nom: {$service->name} | Direction ID: {$service->direction_id}");
+            return response()->json(['message' => 'Service supprimé avec succès.']);
+        } catch (QueryException) {
+            return response()->json(['message' => 'Impossible de supprimer : des documents sont liés à ce service.'], 409);
+        }
     }
 
     public function createSousSerie(Request $request): JsonResponse
@@ -116,7 +144,7 @@ class SettingsController extends Controller
         $sousSerie = SousSerie::create($data);
         $sousSerie->load('serie:id,nom_serie');
 
-        $this->logAction('Création de la sous-série', 'settings', "Libellé: {$sousSerie->libelle_sous_serie} | Série: {$sousSerie->id_serie} | Code: {$sousSerie->code_sous_serie}");
+        $this->logAction('Création de la sous-série', 'settings', "Libellé: {$sousSerie->libelle_sous_serie} | Série ID: {$sousSerie->id_serie}");
 
         return response()->json([
             'sous_serie' => [
@@ -136,7 +164,7 @@ class SettingsController extends Controller
         ]);
         $sousSerie->update($data);
 
-        $this->logAction('Modification de la sous-série', 'settings', "Nouveau libellé: {$sousSerie->libelle_sous_serie} | Série: {$sousSerie->id_serie} | Code: {$sousSerie->code_sous_serie}");
+        $this->logAction('Modification de la sous-série', 'settings', "Nouveau libellé: {$sousSerie->libelle_sous_serie} | Série ID: {$sousSerie->id_serie}");
 
         return response()->json([
             'sous_serie' => [
@@ -150,10 +178,13 @@ class SettingsController extends Controller
 
     public function deleteSousSerie(SousSerie $sousSerie): JsonResponse
     {
-        $this->logAction('Suppression de la sous-série', 'settings', "Libellé: {$sousSerie->libelle_sous_serie} | Série: {$sousSerie->id_serie} | Code: {$sousSerie->code_sous_serie}");
-        $sousSerie->delete();
-
-        return response()->json(['message' => 'Sous-série supprimée avec succès.']);
+        try {
+            $sousSerie->delete();
+            $this->logAction('Suppression de la sous-série', 'settings', "Libellé: {$sousSerie->libelle_sous_serie} | Série ID: {$sousSerie->id_serie}");
+            return response()->json(['message' => 'Sous-série supprimée avec succès.']);
+        } catch (QueryException) {
+            return response()->json(['message' => 'Impossible de supprimer : des documents sont liés à cette sous-série.'], 409);
+        }
     }
 
     public function createSerie(Request $request): JsonResponse
@@ -163,7 +194,7 @@ class SettingsController extends Controller
         ]);
         $serie = SerieArchive::create($data);
 
-        $this->logAction('Création de la série', 'settings', "Nom: {$serie->nom_serie} | Code: {$serie->code_serie} | Direction: {$serie->direction_id}");
+        $this->logAction('Création de la série', 'settings', "Nom: {$serie->nom_serie}");
 
         return response()->json([
             'serie' => [
@@ -182,7 +213,7 @@ class SettingsController extends Controller
         ]);
         $serieArchive->update($data);
 
-        $this->logAction('Modification de la série', 'settings', "Nouveau nom: {$serieArchive->nom_serie} | Code: {$serieArchive->code_serie} | Direction: {$serieArchive->direction_id}");
+        $this->logAction('Modification de la série', 'settings', "Nouveau nom: {$serieArchive->nom_serie}");
 
         return response()->json([
             'serie' => [
@@ -195,10 +226,13 @@ class SettingsController extends Controller
 
     public function deleteSerie(SerieArchive $serieArchive): JsonResponse
     {
-        $this->logAction('Suppression de la série', 'settings', "Nom: {$serieArchive->nom_serie} | Code: {$serieArchive->code_serie} | Direction: {$serieArchive->direction_id}");
-        $serieArchive->delete();
-
-        return response()->json(['message' => 'Série supprimée avec succès.']);
+        try {
+            $serieArchive->delete();
+            $this->logAction('Suppression de la série', 'settings', "Nom: {$serieArchive->nom_serie}");
+            return response()->json(['message' => 'Série supprimée avec succès.']);
+        } catch (QueryException) {
+            return response()->json(['message' => 'Impossible de supprimer : des sous-séries ou documents sont liés à cette série.'], 409);
+        }
     }
 
 }

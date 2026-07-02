@@ -75,6 +75,7 @@ export interface ApiService {
   id:   string;
   name: string;
   direction_id: string | null;
+  direction?: { id: string; nom_direction: string };
 }
 
 export interface ApiUser {
@@ -174,10 +175,10 @@ export const api = {
 
     // ── Services ──────────────────────────────────────────────────────────
     listServices: () =>
-      request<{ services: { id: string; name: string }[] }>('GET', '/settings/services'),
+      request<{ services: ApiService[] }>('GET', '/settings/services'),
 
-    createService: (name: string) =>
-      request<{ service: { id: string; name: string }; message: string }>('POST', '/settings/services', { name }),
+    createService: (name: string, direction_id: string) =>
+      request<{ service: ApiService; message: string }>('POST', '/settings/services', { name, direction_id }),
 
     updateService: (id: string, name: string) =>
       request<{ service: { id: string; name: string }; message: string }>('PUT', `/settings/services/${id}`, { name }),
@@ -233,6 +234,7 @@ export const api = {
       types?: string[];
       statuses?: string[];
       service?: string;
+      direction?: string;
       format?: string;
       from?: string;
       to?: string;
@@ -241,14 +243,15 @@ export const api = {
       per_page?: number;
     }) => {
       const qs = new URLSearchParams();
-      if (params?.q)        qs.set('q', params.q);
-      if (params?.service)  qs.set('service', params.service);
-      if (params?.format)   qs.set('format', params.format);
-      if (params?.from)     qs.set('from', params.from);
-      if (params?.to)       qs.set('to', params.to);
-      if (params?.sort)     qs.set('sort', params.sort);
-      if (params?.user_id)  qs.set('user_id', params.user_id);
-      if (params?.per_page) qs.set('per_page', String(params.per_page));
+      if (params?.q)         qs.set('q', params.q);
+      if (params?.service)   qs.set('service', params.service);
+      if (params?.direction) qs.set('direction', params.direction);
+      if (params?.format)    qs.set('format', params.format);
+      if (params?.from)      qs.set('from', params.from);
+      if (params?.to)        qs.set('to', params.to);
+      if (params?.sort)      qs.set('sort', params.sort);
+      if (params?.user_id)   qs.set('user_id', params.user_id);
+      if (params?.per_page)  qs.set('per_page', String(params.per_page));
       params?.types?.forEach(t    => qs.append('types[]', t));
       params?.statuses?.forEach(s => qs.append('statuses[]', s));
       const suffix = qs.toString() ? '?' + qs.toString() : '';
@@ -279,7 +282,7 @@ export const api = {
       pages?: number; restricted?: boolean;
       keywords?: string[]; description?: string;
       emplacement?: string; serie?: string; sous_serie?: string; direction?: string;
-      temp_id?: string; original_name?: string;
+      temp_id?: string; original_name?: string; draft?: boolean;
     }) => request<{ archive: import('./types').Doc; message: string }>('PUT', `/archives/${id}`, data),
 
     /** Supprime une archive (chef) */
@@ -382,9 +385,10 @@ export const api = {
   },
 
   demandes: {
-    list: (params?: { type?: string; per_page?: number; page?: number }) => {
+    list: (params?: { type?: string; statut?: string; per_page?: number; page?: number }) => {
       const qs = new URLSearchParams();
       if (params?.type) qs.set('type', params.type);
+      if (params?.statut) qs.set('statut', params.statut);
       if (params?.per_page) qs.set('per_page', String(params.per_page));
       if (params?.page) qs.set('page', String(params.page));
       const suffix = qs.toString() ? '?' + qs.toString() : '';
@@ -404,5 +408,7 @@ export const api = {
       request<{ demande: import('./types').DemandeEntry; message: string }>('PUT', `/demandes/${id}/approve`),
     reject: (id: number) =>
       request<{ demande: import('./types').DemandeEntry; message: string }>('PUT', `/demandes/${id}/reject`),
+    stats: () =>
+      request<{ en_attente: number; approuve: number; refuse: number }>('GET', '/demandes/stats'),
   },
 };

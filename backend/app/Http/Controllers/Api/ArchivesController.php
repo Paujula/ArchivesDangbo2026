@@ -9,6 +9,7 @@ use App\Models\Historique;
 use App\Models\SerieArchive;
 use App\Models\Service;
 use App\Models\SousSerie;
+use App\Services\PdfWatermarkService;
 use App\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -98,6 +99,13 @@ class ArchivesController extends Controller
             }
         }
 
+        if ($direction = $request->get('direction')) {
+            $directionModel = \App\Models\Direction::where('nom_direction', $direction)->first();
+            if ($directionModel) {
+                $query->where('direction_id', $directionModel->id);
+            }
+        }
+
         if ($from = $request->get('from')) {
             $query->whereDate('date_enregistrement', '>=', $from);
         }
@@ -114,15 +122,39 @@ class ArchivesController extends Controller
             $query->where('user_id', $userId);
         }
 
-        $sort = match ($request->get('sort')) {
-            'ancien', 'oldest' => ['date_enregistrement', 'asc'],
-            'titre', 'title' => ['titre', 'asc'],
-            'vues' => ['views', 'desc'],
-            default => ['date_enregistrement', 'desc'],
-        };
-
         $perPage = min((int) $request->get('per_page', 20), 100);
-        $documents = $query->orderBy(...$sort)->paginate($perPage);
+        $lastViewCol = \Illuminate\Support\Facades\DB::table('historiques')
+            ->selectRaw('MAX(date_action)')
+            ->whereColumn('id_document', 'documents.id_document')
+            ->where('action', 'like', 'Consultation%');
+
+        switch ($request->get('sort')) {
+            case 'recent':
+                // Documents consultés récemment (avec vue), triés par dernière consultation
+                $query->where('views', '>', 0);
+                $query->orderByDesc($lastViewCol)->orderBy('id_document', 'desc');
+                break;
+            case 'ancien':
+            case 'oldest':
+                // Documents consultés il y a longtemps
+                $query->where('views', '>', 0);
+                $query->orderBy($lastViewCol)->orderBy('id_document', 'asc');
+                break;
+            case 'titre':
+            case 'title':
+                $query->orderBy('titre', 'asc')->orderBy('id_document', 'asc');
+                break;
+            case 'vues':
+                // Documents les plus consultés
+                $query->orderBy('views', 'desc')->orderBy('id_document', 'desc');
+                break;
+            default:
+                // Tri par défaut : date d'enregistrement (pas de filtre vue)
+                $query->orderBy('date_enregistrement', 'desc')->orderBy('id_document', 'desc');
+                break;
+        }
+
+        $documents = $query->paginate($perPage);
 
         return response()->json([
             'archives' => $documents->map(fn ($d) => $this->formatDoc($d)),
@@ -172,6 +204,20 @@ class ArchivesController extends Controller
         $document->original_name = $data['original_name'] ?? null;
         $document->indexed_by = $request->user()->name;
         $document->save();
+
+        if ($document->fichier && $document->original_name && strtolower(pathinfo($document->original_name, PATHINFO_EXTENSION)) === 'pdf') {
+            $fullPath = Storage::disk('public')->path($document->fichier);
+            if (file_exists($fullPath)) {
+                try {
+                    $svc = app(PdfWatermarkService::class);
+                    if (!$svc->hasWatermark($fullPath)) {
+                        $svc->watermark($fullPath, $fullPath);
+                    }
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::warning('Watermark échoué à l\'upload: ' . $e->getMessage());
+                }
+            }
+        }
 
         $this->logAction('Création du document', 'document', "Titre: {$document->titre} | Cote: {$document->cote} | Analyse: {$document->analyse} | Fichier: {$document->original_name} | Pages: {$document->pages} | Format: {$document->format} | Service: {$document->service_id}", $document->id_document);
 
@@ -243,6 +289,20 @@ class ArchivesController extends Controller
         $document->id_serie = $this->resolveSerieId($data['serie'] ?? null) ?? $document->id_serie;
         $document->id_sous_serie = $this->resolveSousSerieId($data['sous_serie'] ?? null) ?? $document->id_sous_serie;
         $document->save();
+
+        if (!empty($data['temp_id']) && $document->fichier && $document->original_name && strtolower(pathinfo($document->original_name, PATHINFO_EXTENSION)) === 'pdf') {
+            $fullPath = Storage::disk('public')->path($document->fichier);
+            if (file_exists($fullPath)) {
+                try {
+                    $svc = app(PdfWatermarkService::class);
+                    if (!$svc->hasWatermark($fullPath)) {
+                        $svc->watermark($fullPath, $fullPath);
+                    }
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::warning('Watermark échoué à la modification: ' . $e->getMessage());
+                }
+            }
+        }
 
         $changes = [];
         if (!empty($data['temp_id'])) {
@@ -352,6 +412,7 @@ class ArchivesController extends Controller
                 if ($isSave) {
                     $this->logAction('Téléchargement du document', 'document', "Titre: {$document->titre} | Cote: {$document->cote} | Analyse: {$document->analyse} | Fichier: {$document->original_name}", $document->id_document);
                 }
+
                 return $isSave
                     ? $disk->download($p, $document->original_name)
                     : $disk->response($p);
@@ -396,6 +457,7 @@ class ArchivesController extends Controller
             'cote' => $doc->cote ?? '',
             'title' => $doc->titre,
             'date' => $doc->date_enregistrement?->toDateString() ?? '',
+            'created_at' => $doc->created_at?->toDateTimeString() ?? '',
             'status' => $doc->statut ?? 'Courante',
             'service' => $doc->service?->name ?? $doc->service_id ?? '',
             'direction' => $doc->direction?->nom_direction ?? '',

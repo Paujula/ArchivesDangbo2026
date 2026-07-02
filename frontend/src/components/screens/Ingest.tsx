@@ -27,13 +27,28 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
   const [services,   setServices]   = useState<ApiService[]>([]);
   const [series,     setSeries]     = useState<{ id: string; nom_serie: string; sous_series: { id: string; libelle_sous_serie: string }[] }[]>([]);
   const [sousSeries, setSousSeries] = useState<{ id: string; libelle_sous_serie: string; id_serie: string }[]>([]);
-  const selectedSerie = series.find(s => s.id === form.serie);
-  const filteredSousSeries = form.serie ? sousSeries.filter(ss => String(ss.id_serie) === form.serie) : [];
+  const [dirSearch, setDirSearch] = useState("");
+  const [showDirSearch, setShowDirSearch] = useState(false);
+  const [svcSearch, setSvcSearch] = useState("");
+  const [showSvcSearch, setShowSvcSearch] = useState(false);
+  const [serieSearch, setSerieSearch] = useState("");
+  const [showSerieSearch, setShowSerieSearch] = useState(false);
+  const [sousSerieSearch, setSousSerieSearch] = useState("");
+  const [showSsSearch, setShowSsSearch] = useState(false);
+  const filteredSousSeries = form.serie ? sousSeries.filter(ss => ss.id_serie === form.serie) : [];
+  const searchedSousSeries = sousSerieSearch ? filteredSousSeries.filter(ss => ss.libelle_sous_serie.toLowerCase().includes(sousSerieSearch.toLowerCase())) : filteredSousSeries;
+  const searchedDirections = dirSearch ? directions.filter(d => d.nom_direction.toLowerCase().includes(dirSearch.toLowerCase())) : directions;
   const filteredServices = form.direction
-    ? services.filter(s => String(s.direction_id) === form.direction)
+    ? services.filter(s => s.direction_id === form.direction)
     : services;
+  const searchedServices = svcSearch ? filteredServices.filter(s => s.name.toLowerCase().includes(svcSearch.toLowerCase())) : filteredServices;
+  const searchedSeries = serieSearch ? series.filter(s => s.nom_serie.toLowerCase().includes(serieSearch.toLowerCase())) : series;
   const autresService = services.find(s => s.name === "Autres");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dirRef = useRef<HTMLDivElement>(null);
+  const svcRef = useRef<HTMLDivElement>(null);
+  const serieRef = useRef<HTMLDivElement>(null);
+  const ssRef = useRef<HTMLDivElement>(null);
 
   const set = (k: string, v: string | boolean) => {
     setForm(f => ({ ...f, [k]: v }));
@@ -75,10 +90,22 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
   };
 
   useEffect(() => {
-    api.settings.listDirections().then(r => setDirections(r.directions)).catch(() => {});
-    api.settings.listServices().then(r => setServices(r.services)).catch(() => {});
-    api.settings.listSeries().then(r => setSeries(r.series)).catch(() => {});
-    api.settings.listSousSeries().then(r => setSousSeries(r.sous_series)).catch(() => {});
+    api.settings.listDirections().then(r => setDirections(r.directions.map((d: any) => ({ ...d, id: String(d.id) })))).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les directions." }));
+    api.settings.listServices().then(r => setServices(r.services.map((s: any) => ({ ...s, id: String(s.id), direction_id: s.direction_id != null ? String(s.direction_id) : null })))).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les services." }));
+    api.settings.listSeries().then(r => setSeries(r.series.map((s: any) => ({ ...s, id: String(s.id), sous_series: s.sous_series.map((ss: any) => ({ ...ss, id: String(ss.id) })) })))).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les séries." }));
+    api.settings.listSousSeries().then(r => setSousSeries(r.sous_series.map((s: any) => ({ ...s, id: String(s.id), id_serie: String(s.id_serie) })))).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les sous-séries." }));
+  }, [ctx]);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (dirRef.current && !dirRef.current.contains(t)) setShowDirSearch(false);
+      if (svcRef.current && !svcRef.current.contains(t)) setShowSvcSearch(false);
+      if (serieRef.current && !serieRef.current.contains(t)) setShowSerieSearch(false);
+      if (ssRef.current && !ssRef.current.contains(t)) setShowSsSearch(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
   // ── Validation ──────────────────────────────────────────────────────────────
@@ -274,7 +301,7 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
             <label>Cote d&apos;archivage</label>
             <input className="input" placeholder="ex : 2024-001"
               value={form.cote} onChange={e => set("cote", e.target.value)} />
-            <div className="hint">Numéro unique identifiant le document dans le fonds.</div>
+            <div className="hint">Référence d'archivage (plusieurs documents peuvent partager la même cote).</div>
           </div>
 
           <div className="field" style={{ marginBottom: 16 }}>
@@ -292,38 +319,136 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
-            <div className="field">
+            <div className="field" style={{ position: "relative" }} ref={dirRef}>
               <label>Direction</label>
-              <select className="select" value={form.direction} onChange={e => { set("direction", e.target.value); set("service", ""); }}>
-                <option value="">— Choisir —</option>
-                {directions.map(d => <option key={d.id} value={d.id}>{d.nom_direction}</option>)}
-              </select>
+              <div className={`select ${form.direction ? "" : "placeholder"}`} style={{ cursor: "pointer", userSelect: "none" }}
+                onClick={() => setShowDirSearch(!showDirSearch)}>
+                {form.direction ? directions.find(d => d.id === form.direction)?.nom_direction : "— Choisir —"}
+              </div>
+              {showDirSearch && (
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: 2,
+                  background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--r-md)",
+                  boxShadow: "var(--shadow-lg)", overflow: "hidden" }}>
+                  <div className="row gap-1 center" style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
+                    <Icon name="search" size={13} className="muted-3" />
+                    <input className="input" style={{ flex: 1, height: 28, fontSize: 12.5, border: "none", outline: "none", background: "none" }}
+                      placeholder="Rechercher une direction…" value={dirSearch} autoFocus
+                      onChange={e => setDirSearch(e.target.value)} />
+                    {dirSearch && <button className="ra-btn" onClick={() => setDirSearch("")}><Icon name="x" size={13} /></button>}
+                  </div>
+                  <div style={{ maxHeight: 220, overflowY: "auto" }}>
+                    {searchedDirections.length === 0 ? (
+                      <div className="muted-3" style={{ padding: "12px 14px", fontSize: 12.5 }}>Aucune direction trouvée.</div>
+                    ) : searchedDirections.map(d => (
+                      <div key={d.id} role="button" tabIndex={0}
+                        style={{ padding: "8px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--border)", background: d.id === form.direction ? "var(--primary-tint)" : "" }}
+                        onClick={() => { set("direction", d.id); set("service", ""); setDirSearch(""); setShowDirSearch(false); }}
+                        onKeyDown={e => e.key === "Enter" && (set("direction", d.id), setShowDirSearch(false))}>
+                        {d.nom_direction}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="field">
+            <div className="field" style={{ position: "relative" }} ref={svcRef}>
               <label>Service <span className="req">*</span></label>
-              <select className={`select ${errors.service ? "error" : ""}`} value={form.service} onChange={e => set("service", e.target.value)}>
-                <option value="">— Choisir —</option>
-                {(filteredServices.length > 0 ? filteredServices : (autresService ? [autresService] : [])).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <div className={`select ${form.service ? "" : "placeholder"} ${errors.service ? "error" : ""}`} style={{ cursor: "pointer", userSelect: "none" }}
+                onClick={() => setShowSvcSearch(!showSvcSearch)}>
+                {form.service ? (filteredServices.find(s => s.id === form.service) || autresService)?.name : "— Choisir —"}
+              </div>
+              {showSvcSearch && (
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: 2,
+                  background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--r-md)",
+                  boxShadow: "var(--shadow-lg)", overflow: "hidden" }}>
+                  <div className="row gap-1 center" style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
+                    <Icon name="search" size={13} className="muted-3" />
+                    <input className="input" style={{ flex: 1, height: 28, fontSize: 12.5, border: "none", outline: "none", background: "none" }}
+                      placeholder="Rechercher un service…" value={svcSearch} autoFocus
+                      onChange={e => setSvcSearch(e.target.value)} />
+                    {svcSearch && <button className="ra-btn" onClick={() => setSvcSearch("")}><Icon name="x" size={13} /></button>}
+                  </div>
+                  <div style={{ maxHeight: 220, overflowY: "auto" }}>
+                    {(() => { const base = filteredServices.length > 0 ? filteredServices : (autresService ? [autresService] : []); const items = svcSearch ? base.filter(s => s.name.toLowerCase().includes(svcSearch.toLowerCase())) : base; if (items.length === 0) return <div className="muted-3" style={{ padding: "12px 14px", fontSize: 12.5 }}>Aucun service trouvé.</div>; return items.map(s => (
+                      <div key={s.id} role="button" tabIndex={0}
+                        style={{ padding: "8px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--border)", background: s.id === form.service ? "var(--primary-tint)" : "" }}
+                        onClick={() => { set("service", s.id); setSvcSearch(""); setShowSvcSearch(false); }}
+                        onKeyDown={e => e.key === "Enter" && (set("service", s.id), setShowSvcSearch(false))}>
+                        {s.name}
+                      </div>
+                    )); })()}
+                  </div>
+                </div>
+              )}
               {errors.service && <div className="err-msg"><Icon name="alert" size={13} />{errors.service}</div>}
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
-            <div className="field">
+            <div className="field" style={{ position: "relative" }} ref={serieRef}>
               <label>Série <span className="req">*</span></label>
-              <select className={`select ${errors.serie ? "error" : ""}`} value={form.serie} onChange={e => { set("serie", e.target.value); set("sousSerie", ""); }}>
-                <option value="">— Choisir —</option>
-                {series.map(s => <option key={s.id} value={s.id}>{s.nom_serie}</option>)}
-              </select>
+              <div className={`select ${form.serie ? "" : "placeholder"} ${errors.serie ? "error" : ""}`} style={{ cursor: "pointer", userSelect: "none" }}
+                onClick={() => setShowSerieSearch(!showSerieSearch)}>
+                {form.serie ? series.find(s => s.id === form.serie)?.nom_serie : "— Choisir —"}
+              </div>
+              {showSerieSearch && (
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: 2,
+                  background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--r-md)",
+                  boxShadow: "var(--shadow-lg)", overflow: "hidden" }}>
+                  <div className="row gap-1 center" style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
+                    <Icon name="search" size={13} className="muted-3" />
+                    <input className="input" style={{ flex: 1, height: 28, fontSize: 12.5, border: "none", outline: "none", background: "none" }}
+                      placeholder="Rechercher une série…" value={serieSearch} autoFocus
+                      onChange={e => setSerieSearch(e.target.value)} />
+                    {serieSearch && <button className="ra-btn" onClick={() => setSerieSearch("")}><Icon name="x" size={13} /></button>}
+                  </div>
+                  <div style={{ maxHeight: 220, overflowY: "auto" }}>
+                    {searchedSeries.length === 0 ? (
+                      <div className="muted-3" style={{ padding: "12px 14px", fontSize: 12.5 }}>Aucune série trouvée.</div>
+                    ) : searchedSeries.map(s => (
+                      <div key={s.id} role="button" tabIndex={0}
+                        style={{ padding: "8px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--border)", background: s.id === form.serie ? "var(--primary-tint)" : "" }}
+                        onClick={() => { set("serie", s.id); set("sousSerie", ""); setSousSerieSearch(""); setShowSsSearch(false); setSerieSearch(""); setShowSerieSearch(false); }}
+                        onKeyDown={e => e.key === "Enter" && (set("serie", s.id), setShowSerieSearch(false))}>
+                        {s.nom_serie}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {errors.serie && <div className="err-msg"><Icon name="alert" size={13} />{errors.serie}</div>}
             </div>
-            <div className="field">
+            <div className="field" style={{ position: "relative" }} ref={ssRef}>
               <label>Sous-série</label>
-              <select className="select" value={form.sousSerie} onChange={e => set("sousSerie", e.target.value)}>
-                <option value="">— Choisir —</option>
-                {filteredSousSeries.map(ss => <option key={ss.id} value={ss.id}>{ss.libelle_sous_serie}</option>)}
-              </select>
+              <div className={`select ${form.sousSerie ? "" : "placeholder"}`} style={{ cursor: "pointer", userSelect: "none" }}
+                onClick={() => setShowSsSearch(!showSsSearch)}>
+                {form.sousSerie ? sousSeries.find(ss => ss.id === form.sousSerie)?.libelle_sous_serie : "— Choisir —"}
+              </div>
+              {showSsSearch && (
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: 2,
+                  background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--r-md)",
+                  boxShadow: "var(--shadow-lg)", overflow: "hidden" }}>
+                  <div className="row gap-1 center" style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
+                    <Icon name="search" size={13} className="muted-3" />
+                    <input className="input" style={{ flex: 1, height: 28, fontSize: 12.5, border: "none", outline: "none", background: "none" }}
+                      placeholder="Rechercher une sous-série…" value={sousSerieSearch} autoFocus
+                      onChange={e => setSousSerieSearch(e.target.value)} />
+                    {sousSerieSearch && <button className="ra-btn" onClick={() => setSousSerieSearch("")}><Icon name="x" size={13} /></button>}
+                  </div>
+                  <div style={{ maxHeight: 220, overflowY: "auto" }}>
+                    {searchedSousSeries.length === 0 ? (
+                      <div className="muted-3" style={{ padding: "12px 14px", fontSize: 12.5 }}>Aucune sous-série trouvée.</div>
+                    ) : searchedSousSeries.map(ss => (
+                      <div key={ss.id} role="button" tabIndex={0}
+                        style={{ padding: "8px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--border)", background: ss.id === form.sousSerie ? "var(--primary-tint)" : "" }}
+                        onClick={() => { set("sousSerie", ss.id); setSousSerieSearch(""); setShowSsSearch(false); }}
+                        onKeyDown={e => e.key === "Enter" && (set("sousSerie", ss.id), setShowSsSearch(false))}>
+                        {ss.libelle_sous_serie}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -353,17 +478,10 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
             </select>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
-            <div className="field">
-              <label>Date du document <span className="req">*</span></label>
-              <input type="date" className={`input ${errors.date ? "error" : ""}`} value={form.date} onChange={e => set("date", e.target.value)} />
-              {errors.date && <div className="err-msg"><Icon name="alert" size={13} />{errors.date}</div>}
-            </div>
-            <div className="field">
-              <label>Nombre de pages</label>
-              <input type="number" className="input" min={0} max={9999} placeholder="ex : 214"
-                value={form.pages} onChange={e => set("pages", e.target.value)} />
-            </div>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label>Date de l'enregistrement du document <span className="req">*</span></label>
+            <input type="date" className={`input ${errors.date ? "error" : ""}`} value={form.date} onChange={e => set("date", e.target.value)} />
+            {errors.date && <div className="err-msg"><Icon name="alert" size={13} />{errors.date}</div>}
           </div>
 
           {/* Accès restreint */}
@@ -378,16 +496,11 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
           </div>
 
           <div className="hr" style={{ margin: "0 0 16px" }} />
-          <div className="row between center wrap gap-3">
-            <button className="btn btn-ghost" onClick={() => submit(true)} disabled={submitting}>
-              <Icon name="draft" size={16} />Enregistrer comme brouillon
-            </button>
-            <button className="btn btn-primary" onClick={() => submit(false)} disabled={submitting}>
-              {submitting
-                ? <><span className="sk" style={{ width: 14, height: 14, borderRadius: "50%" }} />Enregistrement…</>
-                : <><Icon name="check" size={16} />Enregistrer et valider</>}
-            </button>
-          </div>
+          <button className="btn btn-primary" style={{ width: "100%" }} onClick={() => submit(false)} disabled={submitting}>
+            {submitting
+              ? <><span className="sk" style={{ width: 14, height: 14, borderRadius: "50%" }} />Enregistrement…</>
+              : <><Icon name="check" size={16} />Enregistrer</>}
+          </button>
         </div>
       </div>
     </div>

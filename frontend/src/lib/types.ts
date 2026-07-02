@@ -28,7 +28,6 @@ export interface DocLog {
 
 export interface Doc {
   id: string;
-  ref: string;
   cote: string;
   title: string;
   type: string;
@@ -49,6 +48,7 @@ export interface Doc {
   sous_serie?: string;
   direction?: string;
   emplacement?: string;
+  created_at?: string;
   description?: string;
   file?: string;
   original_name?: string;
@@ -128,7 +128,7 @@ export interface DemandeEntry {
   type: string;
   statut: string;
   date_demande: string;
-  document: { id: string; title: string; cote: string; keywords?: string[]; description?: string } | null;
+  document: { id: string; title: string; cote: string; keywords?: string[]; description?: string; original_name?: string; file?: string } | null;
   utilisateur: { id: string; name: string; prenom: string } | null;
   traite_par: { id: string; name: string; prenom: string } | null;
 }
@@ -157,12 +157,20 @@ export interface AppCtx {
   activeDoc: Doc | null;
   viewerTab: string;
   lastList: Route;
+  searchQ: string;
+  searchDocs: Doc[];
+  searchTotal: number;
+  searchSort: string;
+  hasSearched: boolean;
+  setSearch: (q: string, docs: Doc[], total: number, sort: string) => void;
+  clearSearch: () => void;
   services: string[];
+  serviceDirections: Record<string, string>;
   directions: string[];
   series: SerieItem[];
   sousSeries: SousSerieItem[];
   cfg: {
-    addService: (n: string) => void;
+    addService: (n: string, directionName: string) => void;
     renameService: (o: string, n: string) => void;
     removeService: (n: string) => void;
     addSousSerie: (l: string, idSerie: string) => void;

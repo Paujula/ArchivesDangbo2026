@@ -16,7 +16,7 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
     setLoading(true);
     setError("");
     try {
-      const res = await api.archives.list({ user_id: ctx.user.id, sort: "recent" });
+      const res = await api.archives.list({ user_id: ctx.user.id });
       setDocs(res.archives);
       setTotal(res.total);
     } catch {
@@ -82,8 +82,13 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
                   <tr key={d.id}>
                     <td><span className="mono muted" style={{ fontSize: 11.5 }}>{d.cote || "—"}</span></td>
                     <td>
-                      <span style={{ fontWeight: 600, fontSize: 13 }}>{d.title}</span>
-                      {d.ref && <span className="muted-3 mono" style={{ display: "block", fontSize: 10.5 }}>{d.ref}</span>}
+                      <div className="row gap-2 center" style={{ minWidth: 0 }}>
+                        <span style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</span>
+                        {d.status === "brouillon" && (
+                          <span className="badge" style={{ background: "var(--gold-soft, #fef3c7)", color: "var(--gold-deep, #92400e)", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: .3, whiteSpace: "nowrap", flexShrink: 0 }}>Brouillon</span>
+                        )}
+                      </div>
+
                     </td>
                     <td>
                       {d.description
@@ -126,7 +131,7 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement("a");
                             a.href = url;
-                            a.download = d.original_name || d.ref || d.id;
+                            a.download = d.original_name || d.id;
                             a.click();
                             URL.revokeObjectURL(url);
                           } catch {

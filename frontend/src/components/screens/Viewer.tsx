@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/Icon";
 import Seal from "@/components/ui/Seal";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
+import Confirm from "@/components/ui/Confirm";
 import { api, ApiError, ApiService } from "@/lib/api";
 import { CONSERVATION, FORMATS } from "@/lib/data";
 import type { AppCtx, Doc } from "@/lib/types";
@@ -45,6 +46,7 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
   const pages = Math.min(d.pages || 1, 999);
 
   // ── Édition ──────────────────────────────────────────────────────────────
+  const [confirm, setConfirm] = useState<{ msg: string; onConfirm: () => void } | null>(null);
   const [editOpen,  setEditOpen]  = useState(false);
   const [editForm,  setEditForm]  = useState({
     title: d.title, cote: d.cote, service: d.service, direction: d.direction,
@@ -60,9 +62,9 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
   const [editServices, setEditServices] = useState<ApiService[]>([]);
 
   useEffect(() => {
-    api.settings.listDirections().then(r => setEditDirections(r.directions)).catch(() => {});
-    api.settings.listServices().then(r => setEditServices(r.services)).catch(() => {});
-  }, []);
+    api.settings.listDirections().then(r => setEditDirections(r.directions)).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les directions." }));
+    api.settings.listServices().then(r => setEditServices(r.services)).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les services." }));
+  }, [ctx]);
 
   useEffect(() => {
     if (editOpen) {
@@ -173,7 +175,7 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
     viewedRef.current = d.id;
     api.archives.recordView(d.id)
       .then(({ views }) => setViewCount(views))
-      .catch(() => {});
+      .catch(() => {/* silencieux : la vue a échoué mais ce n'est pas bloquant */});
   }, [d.id]);
 
   // ── Charger le fichier depuis l'API (avec token) ──────────────────────────
@@ -217,7 +219,7 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
     setRelated([]);
     api.archives.related(d.id)
       .then(res => setRelated(res.archives))
-      .catch(() => {});
+      .catch(() => {/* silencieux : les documents liés ne sont pas bloquants */});
   }, [d.id]);
 
   const canEdit = ctx.canEdit(d);
@@ -251,8 +253,6 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
             </div>
             <div style={{ minWidth: 0 }}>
               <div className="row gap-2 center wrap">
-                <span className="ref" style={{ fontSize: 12.5 }}>{d.ref}</span>
-                <span className="muted-3">·</span>
                 <Badge dot="#3c5d76">{d.serie || d.type}</Badge>
                 <StatusBadge status={d.status} />
               </div>
@@ -273,7 +273,15 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
             )}
             {(ctx.role === "chef" || ctx.role === "admin") && (
               <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger-deep)", borderColor: "var(--danger-soft)" }}
-                onClick={() => ctx.toast({ tone: "danger", title: "Suppression", body: "Action réservée — confirmation requise." })}>
+                onClick={() => setConfirm({ msg: `Voulez-vous vraiment supprimer le document "${d.title}" ?`, onConfirm: async () => {
+                  try {
+                    await api.archives.delete(d.id);
+                    ctx.toast({ title: "Document supprimé avec succès", body: d.title + " supprimé définitivement." });
+                    ctx.navigate("search");
+                  } catch (err) {
+                    ctx.toast({ tone: "danger", title: "Erreur", body: err instanceof ApiError ? err.message : "Impossible de supprimer." });
+                  }
+                }})}>
                 <Icon name="trash" size={15} />
               </button>
             )}
@@ -344,7 +352,7 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = d.original_name || d.ref || d.id;
+                    a.download = d.original_name || d.id;
                     a.click();
                     URL.revokeObjectURL(url);
                   } catch {
@@ -409,7 +417,7 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
                 {Array.from({ length: 11 }).map((_, i) => (
                   <div key={i} style={{ height: 9, background: "#eef0ec", borderRadius: 3, marginBottom: 11, width: (96 - (i * 13) % 42) + "%" }} />
                 ))}
-                <div className="mono" style={{ fontSize: 9, color: "#aab0a4", marginTop: 18 }}>{d.ref} · p.{page}</div>
+                <div className="mono" style={{ fontSize: 9, color: "#aab0a4", marginTop: 18 }}>p.{page}</div>
                 <div style={{ marginTop: 20, padding: "10px 12px", background: "#f5f6f4", borderRadius: 4, border: "1px solid #dde0da" }}>
                   <span style={{ fontSize: 11, color: "#6b7268" }}>Aucun fichier joint — document non numérisé</span>
                 </div>
@@ -449,8 +457,8 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
           <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
             {tab === "meta" && (
               <div>
-                <MetaRow label="Référence unique"><span className="ref">{d.ref}</span></MetaRow>
                 <MetaRow label="Titre"><span style={{ fontWeight: 600, fontSize: 12.5, lineHeight: 1.4 }}>{d.title}</span></MetaRow>
+                {d.description ? <MetaRow label="Analyse / Mot clés"><span style={{ fontSize: 12.5, lineHeight: 1.4 }}>{d.description}</span></MetaRow> : null}
                 <MetaRow label="Série"><Badge>{d.serie || d.type}</Badge></MetaRow>
                 <MetaRow label="Sous-série">{d.sous_serie || d.sub || <span className="muted-3">—</span>}</MetaRow>
                 <MetaRow label="Date du document">
@@ -510,7 +518,7 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
                     <Icon name="file" size={16} className="muted-3" />
                     <div className="grow" style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.title}</div>
-                      <div className="ref" style={{ fontSize: 11 }}>{x.ref}</div>
+                      <div className="mono muted-3" style={{ fontSize: 11 }}>{x.cote || "—"}</div>
                     </div>
                     <Icon name="chevronRight" size={15} className="muted-3" />
                   </button>
@@ -541,7 +549,7 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
               <label>Cote d&apos;archivage</label>
               <input className="input" placeholder="ex : 2024-001"
                 value={editForm.cote} onChange={e => setEF("cote", e.target.value)} />
-              <div className="hint">Numéro unique identifiant le document dans le fonds.</div>
+              <div className="hint">Référence d'archivage (plusieurs documents peuvent partager la même cote).</div>
             </div>
 
             <div className="field" style={{ marginBottom: 14 }}>
@@ -702,6 +710,14 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
             </div>
           </div>
         </div>
+      )}
+
+      {confirm && (
+        <Confirm
+          msg={confirm.msg}
+          onConfirm={() => { confirm.onConfirm(); setConfirm(null); }}
+          onCancel={() => { ctx.toast({ title: "Suppression annulée", body: "Aucune modification." }); setConfirm(null); }}
+        />
       )}
     </div>
   );

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/Icon";
 import Badge from "@/components/ui/Badge";
+import Confirm from "@/components/ui/Confirm";
 import { api, ApiError } from "@/lib/api";
 import type { AppCtx, Doc } from "@/lib/types";
 
@@ -68,7 +69,7 @@ function EditDrawer({ doc, onClose, onSaved, ctx }: { doc: Doc; onClose: () => v
       const { archive } = await api.archives.update(doc.id, payload);
       onSaved(archive);
       onClose();
-      ctx.toast({ title: "Document modifié", body: archive.ref + " mis à jour." });
+      ctx.toast({ title: "Document modifié", body: archive.title + " mis à jour." });
     } catch (err) {
       ctx.toast({ tone: "danger", title: "Erreur", body: err instanceof ApiError ? err.message : "Impossible de modifier." });
     } finally {
@@ -83,9 +84,8 @@ function EditDrawer({ doc, onClose, onSaved, ctx }: { doc: Doc; onClose: () => v
         <div className="row between center" style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 15 }}>Modifier le document</div>
-            <div className="muted-3 mono" style={{ fontSize: 11 }}>{doc.ref}</div>
+            <div className="muted-3 mono" style={{ fontSize: 11 }}>{doc.cote || "—"}</div>
           </div>
-          <button className="icon-btn" onClick={onClose}><Icon name="x" size={18} /></button>
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
@@ -107,20 +107,20 @@ function EditDrawer({ doc, onClose, onSaved, ctx }: { doc: Doc; onClose: () => v
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
             <div className="field">
-              <label>Service</label>
-              <select className="select" value={service} onChange={e => setService(e.target.value)}>
+              <label>Direction</label>
+              <select className="select" value={direction} onChange={e => { setDirection(e.target.value); if (service && ctx.serviceDirections[service] !== e.target.value) setService(""); }}>
                 <option value="">Sélectionner…</option>
-                {ctx.services.map(s => (
-                  <option key={s} value={s}>{s}</option>
+                {ctx.directions.map(d => (
+                  <option key={d} value={d}>{d}</option>
                 ))}
               </select>
             </div>
             <div className="field">
-              <label>Direction</label>
-              <select className="select" value={direction} onChange={e => setDirection(e.target.value)}>
+              <label>Service</label>
+              <select className="select" value={service} onChange={e => setService(e.target.value)}>
                 <option value="">Sélectionner…</option>
-                {ctx.directions.map(d => (
-                  <option key={d} value={d}>{d}</option>
+                {ctx.services.filter(s => !direction || ctx.serviceDirections[s] === direction).map(s => (
+                  <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             </div>
@@ -213,7 +213,7 @@ function EditDrawer({ doc, onClose, onSaved, ctx }: { doc: Doc; onClose: () => v
         <div className="row between center" style={{ padding: "14px 20px", borderTop: "1px solid var(--border)" }}>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>
           <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
-            {saving ? "Enregistrement…" : <><Icon name="check" size={15} />Enregistrer</>}
+            {saving ? "Modification…" : <><Icon name="check" size={15} />Modifier</>}
           </button>
         </div>
       </div>
@@ -227,14 +227,19 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
+  const [filterDir, setFilterDir] = useState("");
+  const [filterSvc, setFilterSvc] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+  const [sort, setSort] = useState("");
   const [editDoc, setEditDoc] = useState<Doc | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [confirm, setConfirm] = useState<{ msg: string; onConfirm: () => void } | null>(null);
 
-  const fetchDocs = useCallback(async (query?: string) => {
+  const fetchDocs = useCallback(async (params: NonNullable<Parameters<typeof api.archives.list>[0]>) => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.archives.list({ q: query || undefined, sort: "recent", per_page: 100 });
+      const res = await api.archives.list({ ...params, per_page: 100 });
       setDocs(res.archives);
       setTotal(res.total);
     } catch {
@@ -244,20 +249,30 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
     }
   }, []);
 
+  const doSearch = useCallback(() => {
+    const params: Parameters<typeof api.archives.list>[0] = { q: q || undefined };
+    if (sort) { params.sort = sort; }
+    if (filterDir) params.direction = filterDir;
+    if (filterSvc) params.service = filterSvc;
+    if (filterDate) { params.from = filterDate; params.to = filterDate; }
+    fetchDocs(params);
+  }, [q, sort, filterDir, filterSvc, filterDate, fetchDocs]);
+
   useEffect(() => {
-    fetchDocs(q);
-  }, [q, fetchDocs]);
+    doSearch();
+  }, [doSearch]);
 
   const handleDelete = async (d: Doc) => {
-    if (!confirm(`Supprimer définitivement "${d.title}" ?`)) return;
-    try {
-      await api.archives.delete(d.id);
-      setDocs(docs => docs.filter(x => x.id !== d.id));
-      setTotal(t => t - 1);
-      ctx.toast({ title: "Document supprimé", body: d.ref + " supprimé définitivement." });
-    } catch (err) {
-      ctx.toast({ tone: "danger", title: "Erreur", body: err instanceof ApiError ? err.message : "Impossible de supprimer." });
-    }
+    setConfirm({ msg: `Voulez-vous vraiment supprimer le document "${d.title}" ?`, onConfirm: async () => {
+      try {
+        await api.archives.delete(d.id);
+        setDocs(docs => docs.filter(x => x.id !== d.id));
+        setTotal(t => t - 1);
+        ctx.toast({ title: "Document supprimé avec succès", body: d.title + " supprimé définitivement." });
+      } catch (err) {
+        ctx.toast({ tone: "danger", title: "Erreur", body: err instanceof ApiError ? err.message : "Impossible de supprimer." });
+      }
+    }});
   };
 
   if (ctx.role !== "chef" && ctx.role !== "admin") {
@@ -292,14 +307,46 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: 16, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-        <Icon name="search" size={18} className="muted-3" />
-        <input
-          value={q} onChange={e => setQ(e.target.value)}
-          placeholder="Rechercher par titre, référence, mot-clé…"
-          style={{ flex: 1, border: "none", outline: "none", background: "none", fontSize: 14 }}
-        />
-        {q && <button className="ra-btn" onClick={() => setQ("")}><Icon name="x" size={16} /></button>}
+      <div className="card" style={{ padding: "10px 14px", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Icon name="search" size={18} className="muted-3" />
+          <input
+            value={q} onChange={e => setQ(e.target.value)}
+            placeholder="Rechercher par titre, référence, mot-clé…"
+            style={{ flex: 1, border: "none", outline: "none", background: "none", fontSize: 14 }}
+          />
+          {q && <button className="ra-btn" onClick={() => setQ("")}><Icon name="x" size={16} /></button>}
+        </div>
+        <div className="row gap-2 center wrap" style={{ marginTop: 8, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+          <span className="muted-3 mono" style={{ fontSize: 11 }}>FILTRES</span>
+          <select className="select" style={{ height: 32, width: "auto", fontSize: 12.5, paddingRight: 26 }}
+            value={filterDir} onChange={e => { setFilterDir(e.target.value); if (e.target.value && filterSvc && ctx.serviceDirections[filterSvc] !== e.target.value) setFilterSvc(""); }}>
+            <option value="">Toutes les directions</option>
+            {ctx.directions.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <select className="select" style={{ height: 32, width: "auto", fontSize: 12.5, paddingRight: 26 }}
+            value={filterSvc} onChange={e => setFilterSvc(e.target.value)}>
+            <option value="">Tous les services</option>
+            {(filterDir ? ctx.services.filter(s => ctx.serviceDirections[s] === filterDir) : ctx.services).map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <input type="date" className="input" style={{ height: 32, width: 150, fontSize: 12 }}
+            value={filterDate} onChange={e => setFilterDate(e.target.value)} title="Filtrer par date" />
+          {(filterDir || filterSvc || filterDate) && (
+            <button className="ra-btn muted-3" onClick={() => { setFilterDir(""); setFilterSvc(""); setFilterDate(""); }} style={{ fontSize: 12 }}>
+              <Icon name="x" size={13} />Réinitialiser
+            </button>
+          )}
+          <div className="row gap-2 center" style={{ marginLeft: "auto" }}>
+            <span className="muted-3 mono" style={{ fontSize: 11 }}>TRIER</span>
+            <select className="select btn-sm" style={{ height: 32, width: "auto", paddingRight: 26 }} value={sort} onChange={e => setSort(e.target.value)}>
+              <option value="">Date ↓</option>
+              <option value="recent">Consultés récemment</option>
+              <option value="ancien">Plus anciens</option>
+              <option value="vues">Plus consultés</option>
+              <option value="titre">Titre A→Z</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div className="card" style={{ overflow: "hidden" }}>
@@ -379,7 +426,7 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
                               <td><span className="mono muted" style={{ fontSize: 11.5 }}>{d.cote || "—"}</span></td>
                               <td>
                                 <span style={{ fontWeight: 600, fontSize: 13 }}>{d.title}</span>
-                                {d.ref && <span className="muted-3 mono" style={{ display: "block", fontSize: 10.5 }}>{d.ref}</span>}
+                                {d.cote && <span className="muted-3 mono" style={{ display: "block", fontSize: 10.5 }}>{d.cote}</span>}
                               </td>
                               <td>
                                 {d.description
@@ -428,7 +475,7 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
                                       const url = URL.createObjectURL(blob);
                                       const a = document.createElement("a");
                                       a.href = url;
-                                      a.download = d.original_name || d.ref || d.id;
+                                      a.download = d.original_name || d.title || d.id;
                                       a.click();
                                       URL.revokeObjectURL(url);
                                     } catch {
@@ -462,6 +509,14 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
           ctx={ctx}
           onClose={() => setEditDoc(null)}
           onSaved={(updated) => setDocs(prev => prev.map(d => d.id === updated.id ? updated : d))}
+        />
+      )}
+
+      {confirm && (
+        <Confirm
+          msg={confirm.msg}
+          onConfirm={() => { confirm.onConfirm(); setConfirm(null); }}
+          onCancel={() => { ctx.toast({ title: "Suppression annulée", body: "Aucune modification." }); setConfirm(null); }}
         />
       )}
     </div>

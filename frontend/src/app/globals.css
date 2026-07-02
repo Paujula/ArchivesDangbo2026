@@ -313,12 +313,6 @@ h1,h2,h3,h4 { font-family: var(--font-display); font-weight: 600; letter-spacing
 .badge-violet { background: var(--violet-soft); color: var(--violet); }
 .badge-danger { background: var(--danger-soft); color: var(--danger-deep); }
 
-/* mono reference chip */
-.ref {
-  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
-  color: var(--text-2); letter-spacing: -.01em;
-}
-
 /* Tooltip (pure CSS) */
 .tip { position: relative; }
 .tip::after {

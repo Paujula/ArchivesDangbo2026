@@ -34,16 +34,7 @@ export default function Topbar({
       <button className="icon-btn" onClick={onToggleCollapse}>
         <Icon name="menu" size={19} />
       </button>
-
       <div className="topbar-spacer" />
-
-
-
-      {/* Cloche notifications */}
-      <button className="icon-btn tip" data-tip="Notifications" style={{ position: "relative" }}>
-        <Icon name="bell" size={18} />
-        <span style={{ position: "absolute", top: 7, right: 8, width: 7, height: 7, borderRadius: "50%", background: "var(--gold)", border: "1.5px solid var(--surface)" }} />
-      </button>
 
       {/* Menu utilisateur */}
       <div style={{ position: "relative" }}>
@@ -70,12 +61,9 @@ export default function Topbar({
                 <span className="muted-3" style={{ fontSize: 11 }}>{user.service}</span>
               </div>
               <div className="hr" style={{ margin: "2px 0 6px" }} />
-              <button className="um-item" onClick={() => { onToggleUserMenu(); onChangePw(); }}>
-                <Icon name="key" size={17} className="muted" />Changer le mot de passe
-              </button>
-              {(role === "chef" || role === "admin") && (
-                <button className="um-item" onClick={() => { onToggleUserMenu(); onNavigate("settings"); }}>
-                  <Icon name="settings" size={17} className="muted" />Paramètres et Nomenclature
+              {(role !== "saisisseur" && role !== "consultant") && (
+                <button className="um-item" onClick={() => { onToggleUserMenu(); onChangePw(); }}>
+                  <Icon name="key" size={17} className="muted" />Changer le mot de passe
                 </button>
               )}
               <div className="hr" style={{ margin: "6px 0" }} />

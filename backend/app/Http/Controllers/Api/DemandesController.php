@@ -62,8 +62,12 @@ class DemandesController extends Controller
             ->where('type', 'telechargement')
             ->orderBy('date_demande', 'desc');
 
-        if (in_array($user->role, ['agent', 'archiviste'])) {
+        if (!in_array($user->role, ['admin', 'chef'])) {
             $query->where('id_utilisateur', $user->id);
+        }
+
+        if ($request->filled('statut')) {
+            $query->where('statut_demande', $request->statut);
         }
 
         $perPage = min((int) ($request->get('per_page', 20)), 100);
@@ -75,6 +79,22 @@ class DemandesController extends Controller
             'per_page' => $demandes->perPage(),
             'current_page' => $demandes->currentPage(),
             'last_page' => $demandes->lastPage(),
+        ]);
+    }
+
+    public function stats(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $query = Demande::where('type', 'telechargement');
+
+        if (!in_array($user->role, ['admin', 'chef'])) {
+            $query->where('id_utilisateur', $user->id);
+        }
+
+        return response()->json([
+            'en_attente' => (clone $query)->where('statut_demande', 'en_attente')->count(),
+            'approuve' => (clone $query)->where('statut_demande', 'approuve')->count(),
+            'refuse' => (clone $query)->where('statut_demande', 'refuse')->count(),
         ]);
     }
 
@@ -115,6 +135,9 @@ class DemandesController extends Controller
         if ($demande->type !== 'telechargement') {
             return response()->json(['message' => 'Type de demande invalide.'], 400);
         }
+        if ($demande->statut_demande !== 'en_attente') {
+            return response()->json(['message' => 'Cette demande a déjà été traitée.'], 400);
+        }
 
         $demande->update(['statut_demande' => 'approuve', 'traite_par' => request()->user()->id]);
 
@@ -135,6 +158,9 @@ class DemandesController extends Controller
     {
         if ($demande->type !== 'telechargement') {
             return response()->json(['message' => 'Type de demande invalide.'], 400);
+        }
+        if ($demande->statut_demande !== 'en_attente') {
+            return response()->json(['message' => 'Cette demande a déjà été traitée.'], 400);
         }
 
         $demande->update(['statut_demande' => 'refuse', 'traite_par' => request()->user()->id]);

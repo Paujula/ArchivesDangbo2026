@@ -64,21 +64,22 @@ class DocumentController extends Controller
         $fichierName = time() . '_' . $fichier->getClientOriginalName();
         $fichier->move(public_path('uploads'), $fichierName);
 
-        $sousSerie = SousSerie::create(['libelle_sous_serie' => $request->libelle_sous_serie]);
-        $serieArchive = SerieArchive::create([
-            'cote' => $request->cote,
-            'nom_serie' => $request->nom_serie,
-            'id_sous_serie' => $sousSerie->id,
+        $serieArchive = SerieArchive::firstOrCreate(['nom_serie' => $request->nom_serie]);
+        $sousSerie = SousSerie::firstOrCreate([
+            'libelle_sous_serie' => $request->libelle_sous_serie,
+            'id_serie' => $serieArchive->id,
         ]);
 
         $document = Document::create([
             'titre' => $request->titre,
             'analyse' => $request->analyse,
+            'cote' => $request->cote,
             'date_enregistrement' => $request->date_enregistrement,
             'statut' => $request->statut,
             'emplacement' => $request->emplacement,
             'fichier' => $fichierName,
             'id_serie' => $serieArchive->id,
+            'id_sous_serie' => $sousSerie->id,
             'user_id' => auth()->id(),
         ]);
 
@@ -127,21 +128,22 @@ class DocumentController extends Controller
             $fichier->move(public_path('uploads'), $fichierName);
         }
 
-        $sousSerie = SousSerie::find($document->serieArchive->id_sous_serie);
-        $sousSerie->update(['libelle_sous_serie' => $request->libelle_sous_serie]);
-
-        $document->serieArchive->update([
-            'cote' => $request->cote,
-            'nom_serie' => $request->nom_serie,
+        $serieArchive = SerieArchive::firstOrCreate(['nom_serie' => $request->nom_serie]);
+        $sousSerie = SousSerie::firstOrCreate([
+            'libelle_sous_serie' => $request->libelle_sous_serie,
+            'id_serie' => $serieArchive->id,
         ]);
 
         $document->update([
             'titre' => $request->titre,
             'analyse' => $request->analyse,
+            'cote' => $request->cote,
             'date_enregistrement' => $request->date_enregistrement,
             'statut' => $request->statut,
             'emplacement' => $request->emplacement,
             'fichier' => $fichierName,
+            'id_serie' => $serieArchive->id,
+            'id_sous_serie' => $sousSerie->id,
         ]);
 
         Historique::create([
