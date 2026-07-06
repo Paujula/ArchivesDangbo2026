@@ -1,9 +1,11 @@
+import { getToken } from "./api";
+
 export async function downloadDocument(
   docId: string,
   fileName: string,
   options?: { onDemandeNeeded?: () => void; onDemandeSent?: () => void; onError?: (msg: string) => void }
 ) {
-  const token = localStorage.getItem("archive_token");
+  const token = getToken();
   try {
     const r = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL || ""}/api/archives/${docId}/download`,

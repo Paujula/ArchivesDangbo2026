@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Icon from "@/components/ui/Icon";
-import Seal from "@/components/ui/Seal";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
 import { USERS, ROLES, DEMO_ACCOUNTS } from "@/lib/data";

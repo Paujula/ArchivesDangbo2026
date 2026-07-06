@@ -8,7 +8,7 @@ const TOKEN_KEY = 'archive_token';
 
 // ── Token helpers ────────────────────────────────────────────────────────────
 
-function getToken(): string | null {
+export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -185,6 +185,19 @@ export const api = {
 
     deleteService: (id: string) =>
       request<{ message: string }>('DELETE', `/settings/services/${id}`),
+
+    // ── Emplacements ──────────────────────────────────────────────────────
+    listEmplacements: () =>
+      request<{ emplacements: { id: string; nom_emplacement: string }[] }>('GET', '/settings/emplacements'),
+
+    createEmplacement: (nom_emplacement: string) =>
+      request<{ emplacement: { id: string; nom_emplacement: string }; message: string }>('POST', '/settings/emplacements', { nom_emplacement }),
+
+    updateEmplacement: (id: string, nom_emplacement: string) =>
+      request<{ emplacement: { id: string; nom_emplacement: string }; message: string }>('PUT', `/settings/emplacements/${id}`, { nom_emplacement }),
+
+    deleteEmplacement: (id: string) =>
+      request<{ message: string }>('DELETE', `/settings/emplacements/${id}`),
 
   },
 
@@ -410,5 +423,10 @@ export const api = {
       request<{ demande: import('./types').DemandeEntry; message: string }>('PUT', `/demandes/${id}/reject`),
     stats: () =>
       request<{ en_attente: number; approuve: number; refuse: number }>('GET', '/demandes/stats'),
+  },
+
+  rapport: {
+    documentsByDate: (date: string) =>
+      request<{ documents: import('./types').RapportDocument[]; total: number; date: string }>('GET', `/rapport/documents?date=${date}`),
   },
 };

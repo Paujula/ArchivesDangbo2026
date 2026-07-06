@@ -27,6 +27,7 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
   const [services,   setServices]   = useState<ApiService[]>([]);
   const [series,     setSeries]     = useState<{ id: string; nom_serie: string; sous_series: { id: string; libelle_sous_serie: string }[] }[]>([]);
   const [sousSeries, setSousSeries] = useState<{ id: string; libelle_sous_serie: string; id_serie: string }[]>([]);
+  const [emplacements, setEmplacements] = useState<{ id: string; nom_emplacement: string }[]>([]);
   const [dirSearch, setDirSearch] = useState("");
   const [showDirSearch, setShowDirSearch] = useState(false);
   const [svcSearch, setSvcSearch] = useState("");
@@ -35,8 +36,11 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
   const [showSerieSearch, setShowSerieSearch] = useState(false);
   const [sousSerieSearch, setSousSerieSearch] = useState("");
   const [showSsSearch, setShowSsSearch] = useState(false);
+  const [emplSearch, setEmplSearch] = useState("");
+  const [showEmplSearch, setShowEmplSearch] = useState(false);
   const filteredSousSeries = form.serie ? sousSeries.filter(ss => ss.id_serie === form.serie) : [];
   const searchedSousSeries = sousSerieSearch ? filteredSousSeries.filter(ss => ss.libelle_sous_serie.toLowerCase().includes(sousSerieSearch.toLowerCase())) : filteredSousSeries;
+  const searchedEmplacements = emplSearch ? emplacements.filter(e => e.nom_emplacement.toLowerCase().includes(emplSearch.toLowerCase())) : emplacements;
   const searchedDirections = dirSearch ? directions.filter(d => d.nom_direction.toLowerCase().includes(dirSearch.toLowerCase())) : directions;
   const filteredServices = form.direction
     ? services.filter(s => s.direction_id === form.direction)
@@ -49,6 +53,7 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
   const svcRef = useRef<HTMLDivElement>(null);
   const serieRef = useRef<HTMLDivElement>(null);
   const ssRef = useRef<HTMLDivElement>(null);
+  const emplRef = useRef<HTMLDivElement>(null);
 
   const set = (k: string, v: string | boolean) => {
     setForm(f => ({ ...f, [k]: v }));
@@ -94,6 +99,7 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
     api.settings.listServices().then(r => setServices(r.services.map((s: any) => ({ ...s, id: String(s.id), direction_id: s.direction_id != null ? String(s.direction_id) : null })))).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les services." }));
     api.settings.listSeries().then(r => setSeries(r.series.map((s: any) => ({ ...s, id: String(s.id), sous_series: s.sous_series.map((ss: any) => ({ ...ss, id: String(ss.id) })) })))).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les séries." }));
     api.settings.listSousSeries().then(r => setSousSeries(r.sous_series.map((s: any) => ({ ...s, id: String(s.id), id_serie: String(s.id_serie) })))).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les sous-séries." }));
+    api.settings.listEmplacements().then(r => setEmplacements(r.emplacements.map((e: any) => ({ ...e, id: String(e.id) })))).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les emplacements." }));
   }, [ctx]);
 
   useEffect(() => {
@@ -103,6 +109,7 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
       if (svcRef.current && !svcRef.current.contains(t)) setShowSvcSearch(false);
       if (serieRef.current && !serieRef.current.contains(t)) setShowSerieSearch(false);
       if (ssRef.current && !ssRef.current.contains(t)) setShowSsSearch(false);
+      if (emplRef.current && !emplRef.current.contains(t)) setShowEmplSearch(false);
     };
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
@@ -130,6 +137,7 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
     }
 
     setSubmitting(true);
+    const emplName = form.emplacement ? emplacements.find(e => e.id === form.emplacement)?.nom_emplacement || form.emplacement : undefined;
     try {
       await api.archives.create({
         title:       form.title,
@@ -137,7 +145,7 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
         direction:   form.direction || undefined,
         serie:       form.serie || undefined,
         sous_serie:  form.sousSerie || undefined,
-        emplacement: form.emplacement || undefined,
+        emplacement: emplName,
         service:     form.service,
         status:      form.status,
         format:      form.format || undefined,
@@ -452,10 +460,37 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
             </div>
           </div>
 
-          <div className="field" style={{ marginBottom: 16 }}>
+          <div className="field" style={{ position: "relative", marginBottom: 16 }} ref={emplRef}>
             <label>Emplacement physique</label>
-            <input className="input" placeholder="ex : Armoire B3, Tablette 4"
-              value={form.emplacement} onChange={e => set("emplacement", e.target.value)} />
+            <div className={`select ${form.emplacement ? "" : "placeholder"}`} style={{ cursor: "pointer", userSelect: "none" }}
+              onClick={() => setShowEmplSearch(!showEmplSearch)}>
+              {form.emplacement ? emplacements.find(e => e.id === form.emplacement)?.nom_emplacement : "— Choisir —"}
+            </div>
+            {showEmplSearch && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: 2,
+                background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--r-md)",
+                boxShadow: "var(--shadow-lg)", overflow: "hidden" }}>
+                <div className="row gap-1 center" style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
+                  <Icon name="search" size={13} className="muted-3" />
+                  <input className="input" style={{ flex: 1, height: 28, fontSize: 12.5, border: "none", outline: "none", background: "none" }}
+                    placeholder="Rechercher un emplacement…" value={emplSearch} autoFocus
+                    onChange={e => setEmplSearch(e.target.value)} />
+                  {emplSearch && <button className="ra-btn" onClick={() => setEmplSearch("")}><Icon name="x" size={13} /></button>}
+                </div>
+                <div style={{ maxHeight: 220, overflowY: "auto" }}>
+                  {searchedEmplacements.length === 0 ? (
+                    <div className="muted-3" style={{ padding: "12px 14px", fontSize: 12.5 }}>Aucun emplacement trouvé.</div>
+                  ) : searchedEmplacements.map(e => (
+                    <div key={e.id} role="button" tabIndex={0}
+                      style={{ padding: "8px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--border)", background: e.id === form.emplacement ? "var(--primary-tint)" : "" }}
+                      onClick={() => { set("emplacement", e.id); setEmplSearch(""); setShowEmplSearch(false); }}
+                      onKeyDown={e2 => e2.key === "Enter" && (set("emplacement", e.id), setShowEmplSearch(false))}>
+                      {e.nom_emplacement}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="field" style={{ marginBottom: 16 }}>

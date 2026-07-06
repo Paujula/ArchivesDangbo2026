@@ -1,7 +1,6 @@
 "use client";
 
 import Icon from "@/components/ui/Icon";
-import Seal from "@/components/ui/Seal";
 import { ROLES } from "@/lib/data";
 import type { Route, Role } from "@/lib/types";
 
@@ -28,6 +27,7 @@ const NAV = [
       { key: "demandes" as Route, icon: "download",   label: "Demandes d'accès",          roles: ["chef", "saisisseur", "consultant"] },
       { key: "historique" as Route, icon: "history",  label: "Historique d'activité",     roles: ["admin"] },
       { key: "settings"  as Route, icon: "settings",  label: "Paramètres et Nomenclature",  roles: ["chef", "admin"] },
+      { key: "rapport" as Route, icon: "chart",       label: "Rapport Journalière",         roles: ["chef", "admin"] },
     ],
   },
 ];

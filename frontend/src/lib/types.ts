@@ -37,7 +37,7 @@ export interface Doc {
   status: string;
   format: string;
   pages: number;
-  size: number;
+  size: string;
   by: string;
   at: string;
   views: number;
@@ -120,7 +120,25 @@ export interface DashboardStats {
   direction_distribution: { label: string; count: number }[];
 }
 
-export type Route = "dashboard" | "search" | "ingest" | "viewer" | "users" | "settings" | "documents" | "historique" | "demandes" | "my-documents";
+export type Route = "dashboard" | "search" | "ingest" | "viewer" | "users" | "settings" | "documents" | "historique" | "demandes" | "my-documents" | "rapport";
+
+export interface RapportDocument {
+  id: string;
+  cote: string;
+  title: string;
+  description: string;
+  date: string;
+  created_at: string;
+  status: string;
+  service: string;
+  serie: string;
+  sous_serie: string;
+  direction: string;
+  file: string;
+  original_name: string;
+  creator: { id: string; name: string; prenom: string; email: string } | null;
+  indexed_by: string;
+}
 
 export interface DemandeEntry {
   id: number;
@@ -167,6 +185,7 @@ export interface AppCtx {
   services: string[];
   serviceDirections: Record<string, string>;
   directions: string[];
+  emplacements: string[];
   series: SerieItem[];
   sousSeries: SousSerieItem[];
   cfg: {
@@ -182,6 +201,15 @@ export interface AppCtx {
     addDirection: (n: string) => void;
     renameDirection: (o: string, n: string) => void;
     removeDirection: (n: string) => void;
+    addEmplacement: (n: string) => void;
+    renameEmplacement: (o: string, n: string) => void;
+    removeEmplacement: (n: string) => void;
   };
   refreshActiveDoc: () => Promise<void>;
+  rapportDocs: RapportDocument[];
+  rapportTotal: number;
+  rapportDate: string;
+  rapportSearched: boolean;
+  setRapportState: (date: string, docs: RapportDocument[], total: number) => void;
+  clearRapportState: () => void;
 }

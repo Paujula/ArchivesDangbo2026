@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from "react";
-import type { Role, User, Doc, Toast, Route, AppCtx, SerieItem, SousSerieItem } from "@/lib/types";
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
+import type { Role, User, Doc, Toast, Route, AppCtx, SerieItem, SousSerieItem, RapportDocument } from "@/lib/types";
 import { api, setToken, clearToken, hasToken, type ApiUser } from "@/lib/api";
+import { formatRelative } from "@/lib/utils";
 
 // ── Conversion ApiUser → User (type frontend) ────────────────────────────────
 
@@ -28,19 +29,6 @@ function apiUserToUser(u: ApiUser): User {
   };
 }
 
-function formatRelative(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1)   return 'il y a quelques secondes';
-  if (mins < 60)  return `il y a ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24)   return `il y a ${hrs} h`;
-  const days = Math.floor(hrs / 24);
-  if (days === 1) return 'hier';
-  if (days < 30)  return `il y a ${days} j`;
-  return new Date(iso).toLocaleDateString('fr-FR');
-}
-
 // ── Utilisateur vide par défaut (pendant le chargement) ─────────────────────
 
 const EMPTY_USER: User = {
@@ -58,8 +46,8 @@ function firstRoute(role: Role): Route {
 }
 
 const ALLOWED_ROUTES: Record<Role, Route[]> = {
-  admin:      ['dashboard', 'search', 'ingest', 'viewer', 'users', 'settings', 'historique'],
-  chef:       ['dashboard', 'search', 'ingest', 'viewer', 'users', 'settings', 'documents', 'demandes'],
+  admin:      ['dashboard', 'search', 'ingest', 'viewer', 'users', 'settings', 'historique', 'rapport'],
+  chef:       ['dashboard', 'search', 'ingest', 'viewer', 'users', 'settings', 'documents', 'demandes', 'rapport'],
   saisisseur: ['dashboard', 'search', 'ingest', 'viewer', 'my-documents', 'demandes'],
   consultant: ['dashboard', 'search', 'viewer', 'demandes'],
 };
@@ -80,6 +68,7 @@ interface AppState {
   services:    string[];
   serviceDirections: Record<string, string>;
   directions:  string[];
+  emplacements: string[];
   series:      SerieItem[];
   sousSeries:  SousSerieItem[];
   userMenuOpen:   boolean;
@@ -104,6 +93,12 @@ interface AppState {
   setRoleMenuOpen:   (o: boolean) => void;
   setChangePwOpen:   (o: boolean) => void;
 
+  rapportDocs:   RapportDocument[];
+  rapportTotal:  number;
+  rapportDate:   string;
+  rapportSearched: boolean;
+  setRapportState: (date: string, docs: RapportDocument[], total: number) => void;
+  clearRapportState: () => void;
   cfg:       AppCtx['cfg'];
   user:      User;
   ctx:       AppCtx;
@@ -127,12 +122,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [searchTotal,   setSearchTotal]    = useState(0);
   const [searchSort,    setSearchSort]     = useState('recent');
   const [hasSearched,   setHasSearched]    = useState(false);
+  const [rapportDocs,   setRapportDocs]     = useState<RapportDocument[]>([]);
+  const [rapportTotal,  setRapportTotal]    = useState(0);
+  const [rapportDate,   setRapportDate]     = useState('');
+  const [rapportSearched, setRapportSearched] = useState(false);
   const [toasts,      setToasts]      = useState<Toast[]>([]);
 
   const [collapsed,   setCollapsed]   = useState(false);
   const [services,    setServices]    = useState<string[]>([]);
   const [serviceDirections, setServiceDirections] = useState<Record<string, string>>({});
   const [directions,  setDirections]  = useState<string[]>([]);
+  const [emplacements, setEmplacements] = useState<string[]>([]);
   const [series,      setSeries]      = useState<SerieItem[]>([]);
   const [sousSeries,  setSousSeries]  = useState<SousSerieItem[]>([]);
   const [userMenuOpen,  setUserMenuOpen]  = useState(false);
@@ -148,16 +148,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const sousSerieIdsRef = useRef<Map<string, string>>(new Map()); // libelle_sous_serie → UUID
   const serieIdsRef     = useRef<Map<string, string>>(new Map()); // nom_serie → UUID
   const directionIdsRef = useRef<Map<string, string>>(new Map()); // nom_direction → UUID
+  const emplacementIdsRef = useRef<Map<string, string>>(new Map()); // nom_emplacement → UUID
 
   // ── Chargement de la nomenclature depuis l'API ────────────────────────────
 
   const loadNomenclature = useCallback(async () => {
     try {
-      const [{ services: svcList }, { series: serieList }, { sous_series: ssList }, { directions: dirList }] = await Promise.all([
+      const [{ services: svcList }, { series: serieList }, { sous_series: ssList }, { directions: dirList }, { emplacements: emplList }] = await Promise.all([
         api.settings.listServices(),
         api.settings.listSeries(),
         api.settings.listSousSeries(),
         api.settings.listDirections(),
+        api.settings.listEmplacements(),
       ]);
 
       // Reconstruire serviceIdsRef + état
@@ -181,6 +183,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       directionIdsRef.current = dirMap;
       setDirections(dirList.map((d: { nom_direction: string }) => d.nom_direction));
+
+      // Emplacements
+      const emplMap = new Map<string, string>();
+      for (const e of emplList) {
+        emplMap.set(e.nom_emplacement, e.id);
+      }
+      emplacementIdsRef.current = emplMap;
+      setEmplacements(emplList.map((e: { nom_emplacement: string }) => e.nom_emplacement));
 
       // Reconstruire sousSerieIdsRef + état
       const ssMap = new Map<string, string>();
@@ -226,6 +236,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [loadNomenclature]);
 
+  // ── Persistance de la route (survit au F5) ──────────────────────────────
+
+  useEffect(() => {
+    if (authed) {
+      const saved = sessionStorage.getItem('route') as Route | null;
+      if (saved && ALLOWED_ROUTES[role].includes(saved)) {
+        setRoute(saved);
+      }
+    }
+  }, [authed]);
+
   // ── Redirection si route non autorisée après changement de rôle ──────────
 
   useEffect(() => {
@@ -242,32 +263,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const u = apiUserToUser(apiUser);
     setUser(u);
     setRoleState(u.role);
+    try { sessionStorage.removeItem('route'); } catch { /* ignorer */ }
     setAuthed(true);
     setRoute(firstRoute(u.role));
     clearSearch();
+    clearRapportState();
     loadNomenclature(); // pas d'await : se charge en arrière-plan
   }, [loadNomenclature]);
 
   const logout = useCallback(async () => {
     try { await api.auth.logout(); } catch { /* ignorer les erreurs réseau */ }
     clearToken();
+    try { sessionStorage.removeItem('route'); } catch { /* ignorer */ }
     setUserMenuOpen(false);
     setAuthed(false);
     setUser(EMPTY_USER);
     setRoleState('chef');
     setRoute('search');
     clearSearch();
+    clearRapportState();
     setActiveDoc(null);
     setViewerTab('meta');
     // Vider la nomenclature et les refs
     setServices([]);
     setServiceDirections({});
     setDirections([]);
+    setEmplacements([]);
     setSeries([]);
     setSousSeries([]);
-    serviceIdsRef.current = new Map();
-    serviceDirectionRef.current = new Map();
-    sousSerieIdsRef.current = new Map();
+      serviceIdsRef.current = new Map();
+      serviceDirectionRef.current = new Map();
+      sousSerieIdsRef.current = new Map();
     serieIdsRef.current     = new Map();
     directionIdsRef.current = new Map();
   }, []);
@@ -276,6 +302,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const navigate = useCallback((r: Route) => {
     setRoute(r);
+    try { sessionStorage.setItem('route', r); } catch { /* ignorer */ }
     document.querySelector('.content')?.scrollTo(0, 0);
   }, []);
 
@@ -337,6 +364,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSearchTotal(0);
     setSearchSort('recent');
     setHasSearched(false);
+  }, []);
+
+  // ── Rapport persistant ─────────────────────────────────────────────────────
+
+  const setRapportState = useCallback((date: string, docs: RapportDocument[], total: number) => {
+    setRapportDate(date);
+    setRapportDocs(docs);
+    setRapportTotal(total);
+    setRapportSearched(true);
+  }, []);
+
+  const clearRapportState = useCallback(() => {
+    setRapportDate('');
+    setRapportDocs([]);
+    setRapportTotal(0);
+    setRapportSearched(false);
   }, []);
 
   // ── Toasts ────────────────────────────────────────────────────────────────
@@ -489,6 +532,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
     },
 
+    // ── Emplacements ─────────────────────────────────────────────────────
+
+    addEmplacement: (n) => {
+      setEmplacements(s => s.includes(n) ? s : [...s, n]);
+      api.settings.createEmplacement(n)
+        .then(({ emplacement }) => {
+          emplacementIdsRef.current.set(emplacement.nom_emplacement, emplacement.id);
+        })
+        .catch((err) => {
+          setEmplacements(s => s.filter(x => x !== n));
+          toast({ tone: 'danger', title: 'Erreur', body: err?.message ?? 'Impossible de créer l\'emplacement.' });
+        });
+    },
+
+    renameEmplacement: (o, n) => {
+      const id = emplacementIdsRef.current.get(o);
+      if (!id) return;
+      setEmplacements(s => s.map(x => x === o ? n : x));
+      emplacementIdsRef.current.delete(o);
+      emplacementIdsRef.current.set(n, id);
+      api.settings.updateEmplacement(id, n)
+        .catch((err) => {
+          setEmplacements(s => s.map(x => x === n ? o : x));
+          emplacementIdsRef.current.delete(n);
+          emplacementIdsRef.current.set(o, id);
+          toast({ tone: 'danger', title: 'Erreur', body: err?.message ?? 'Impossible de renommer l\'emplacement.' });
+        });
+    },
+
+    removeEmplacement: (n) => {
+      const id = emplacementIdsRef.current.get(n);
+      if (!id) return;
+      setEmplacements(s => s.filter(x => x !== n));
+      emplacementIdsRef.current.delete(n);
+      api.settings.deleteEmplacement(id)
+        .catch((err) => {
+          setEmplacements(s => [...s, n]);
+          emplacementIdsRef.current.set(n, id);
+          toast({ tone: 'danger', title: 'Erreur', body: err?.message ?? 'Impossible de supprimer l\'emplacement.' });
+        });
+    },
+
     // ── Directions ────────────────────────────────────────────────────────
 
     addDirection: (n) => {
@@ -538,17 +623,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     role, user, navigate, openDoc, denyAccess, canAccess, canEdit, toast,
     activeDoc, viewerTab, lastList: lastList as Route,
     searchQ, searchDocs, searchTotal, searchSort, hasSearched, setSearch, clearSearch,
-    services, serviceDirections, directions, series, sousSeries, cfg,
+    rapportDocs, rapportTotal, rapportDate, rapportSearched, setRapportState, clearRapportState,
+    services, serviceDirections, directions, emplacements, series, sousSeries, cfg,
     refreshActiveDoc,
   };
 
   const value: AppState = {
     authed, authLoading, role, route, activeDoc, viewerTab,
     lastList: lastList as Route, toasts,
-    collapsed, services, serviceDirections, directions, series, sousSeries,
+    collapsed, services, serviceDirections, directions, emplacements, series, sousSeries,
     userMenuOpen, roleMenuOpen, changePwOpen,
     login, logout, setRole, navigate, openDoc, denyAccess, canAccess, canEdit, toast,
     setCollapsed, setUserMenuOpen, setRoleMenuOpen, setChangePwOpen,
+    rapportDocs, rapportTotal, rapportDate, rapportSearched, setRapportState, clearRapportState,
     cfg, user, ctx,
   };
 

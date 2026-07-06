@@ -21,8 +21,8 @@ function AddInline({ placeholder, onAdd, btn = "Ajouter" }: {
 }
 
 export default function Settings({ ctx }: { ctx: AppCtx }) {
-  const { services, serviceDirections, cfg, sousSeries, series, directions } = ctx;
-  const [tab, setTab] = useState<"directions" | "services" | "series">("directions");
+  const { services, serviceDirections, cfg, sousSeries, series, directions, emplacements } = ctx;
+  const [tab, setTab] = useState<"directions" | "services" | "series" | "emplacements">("directions");
   const [newSerieNom, setNewSerieNom] = useState("");
   const [newSerieSous, setNewSerieSous] = useState("");
   const [newSousSerie, setNewSousSerie] = useState("");
@@ -90,6 +90,9 @@ export default function Settings({ ctx }: { ctx: AppCtx }) {
         </button>
         <button className={tab === "series" ? "on" : ""} onClick={() => setTab("series")}>
           <Icon name="folder" size={15} /> Cadre de classement
+        </button>
+        <button className={tab === "emplacements" ? "on" : ""} onClick={() => setTab("emplacements")}>
+          <Icon name="archive" size={15} /> Emplacements
         </button>
       </div>
 
@@ -291,6 +294,47 @@ export default function Settings({ ctx }: { ctx: AppCtx }) {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {tab === "emplacements" && (
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(360px, 440px) 1fr", gap: "var(--gap-grid)", alignItems: "start" }}>
+          <div className="card card-pad">
+            <div className="row gap-2 center" style={{ marginBottom: 4 }}>
+              <div className="s-ico" style={{ width: 30, height: 30, background: "var(--slate-soft)", color: "var(--slate)" }}>
+                <Icon name="archive" size={16} />
+              </div>
+              <strong style={{ fontSize: 14.5 }}>Emplacements physiques</strong>
+              <span className="badge badge-neutral" style={{ marginLeft: "auto" }}>{emplacements.length}</span>
+            </div>
+            <div className="muted" style={{ fontSize: 12.5, margin: "6px 0 14px" }}>
+              Rayonnages, armoires, travées où sont stockées les archives physiques.
+            </div>
+
+            <div className="col" style={{ border: "1px solid var(--border)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
+              {emplacements.length === 0 && <div className="muted-3" style={{ padding: 14, fontSize: 12.5 }}>Aucun emplacement.</div>}
+              {emplacements.map((e, i) => (
+                <div key={e} className="row between center"
+                  style={{ padding: "11px 13px", borderBottom: i < emplacements.length - 1 ? "1px solid var(--border)" : "none" }}>
+                  <div className="row gap-3 center" style={{ minWidth: 0 }}>
+                    <Icon name="archive" size={15} className="muted-3" />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{e}</span>
+                  </div>
+                  <button className="ra-btn danger tip" data-tip="Retirer" onClick={() => setConfirm({ msg: `Voulez-vous vraiment supprimer l'emplacement "${e}" ?`, onConfirm: () => {
+                    cfg.removeEmplacement(e);
+                    ctx.toast({ title: "Emplacement supprimé avec succès", body: e + " a été retiré." });
+                  }})}>
+                    <Icon name="trash" size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <AddInline placeholder="Nom du nouvel emplacement…" onAdd={(n) => {
+              cfg.addEmplacement(n);
+              ctx.toast({ title: "Emplacement ajouté", body: n + " est désormais sélectionnable." });
+            }} />
+          </div>
+          <div />
         </div>
       )}
 

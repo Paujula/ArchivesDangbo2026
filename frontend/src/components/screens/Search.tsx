@@ -211,7 +211,6 @@ export default function Search({ ctx }: { ctx: AppCtx }) {
                 <tr>
                   <th style={{ width: 80 }}>Cote</th>
                   <th>Titre</th>
-                  <th style={{ width: 100 }}>Par jour de création</th>
                   <th style={{ width: 120 }}>Mot-clé</th>
                   <th style={{ width: 90 }}>Série</th>
                   <th style={{ width: 100 }}>Sous-série</th>
@@ -224,11 +223,11 @@ export default function Search({ ctx }: { ctx: AppCtx }) {
               <tbody>
                 {loading ? (
                   Array.from({ length: 7 }).map((_, i) => (
-                    <tr key={i}><td colSpan={ctx.role === "chef" || ctx.role === "admin" ? 10 : 9}><div className="sk" style={{ height: 18, width: (60 + (i * 7) % 35) + "%" }} /></td></tr>
+                    <tr key={i}><td colSpan={ctx.role === "chef" || ctx.role === "admin" ? 9 : 8}><div className="sk" style={{ height: 18, width: (60 + (i * 7) % 35) + "%" }} /></td></tr>
                   ))
                 ) : error ? (
                   <tr>
-                    <td colSpan={ctx.role === "chef" || ctx.role === "admin" ? 10 : 9}>
+                    <td colSpan={ctx.role === "chef" || ctx.role === "admin" ? 9 : 8}>
                       <div className="col center" style={{ gap: 10, padding: 40 }}>
                         <Icon name="alert" size={26} />
                         <div style={{ fontSize: 13.5, fontWeight: 600 }}>{error}</div>
@@ -237,7 +236,7 @@ export default function Search({ ctx }: { ctx: AppCtx }) {
                   </tr>
                 ) : docs.length === 0 ? (
                   <tr>
-                    <td colSpan={ctx.role === "chef" || ctx.role === "admin" ? 10 : 9} style={{ height: 220 }}>
+                    <td colSpan={ctx.role === "chef" || ctx.role === "admin" ? 9 : 8} style={{ height: 220 }}>
                       <div className="col center" style={{ gap: 10, color: "var(--text-3)" }}>
                         <Icon name="search" size={30} />
                         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-2)" }}>Aucune archive ne correspond</div>
@@ -257,7 +256,6 @@ export default function Search({ ctx }: { ctx: AppCtx }) {
                             )}
                           </div>
                       </td>
-                      <td><span className="mono" style={{ fontSize: 11.5 }}>{d.created_at ? new Date(d.created_at).toLocaleDateString("fr-FR") : "—"}</span></td>
                       <td>
                         {d.description
                           ? <span style={{ fontSize: 11.5 }}>{d.description.length > 40 ? d.description.slice(0, 40) + "…" : d.description}</span>

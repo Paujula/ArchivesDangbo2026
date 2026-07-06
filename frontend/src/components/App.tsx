@@ -13,6 +13,7 @@ import Documents from "@/components/screens/Documents";
 import MyDocuments from "@/components/screens/MyDocuments";
 import Historique from "@/components/screens/Historique";
 import DemandesScreen from "@/components/screens/DemandesScreen";
+import RapportScreen from "@/components/screens/RapportScreen";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import ToastList from "@/components/ui/Toast";
@@ -98,6 +99,7 @@ export default function App() {
           {app.route === 'my-documents' && <MyDocuments ctx={app.ctx} />}
           {app.route === 'historique' && <Historique ctx={app.ctx} />}
           {app.route === 'demandes' && <DemandesScreen ctx={app.ctx} />}
+          {app.route === 'rapport' && <RapportScreen ctx={app.ctx} />}
         </main>
       </div>
 

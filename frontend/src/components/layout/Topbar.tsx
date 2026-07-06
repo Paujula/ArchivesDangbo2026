@@ -3,7 +3,7 @@
 import Icon from "@/components/ui/Icon";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
-import { ROLES, USERS } from "@/lib/data";
+import { ROLES } from "@/lib/data";
 import type { Role, User } from "@/lib/types";
 
 interface TopbarProps {

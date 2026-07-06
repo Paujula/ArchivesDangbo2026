@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/Icon";
-import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
 import { api } from "@/lib/api";
 import type { AppCtx, HistoriqueEntry } from "@/lib/types";

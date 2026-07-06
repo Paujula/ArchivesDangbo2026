@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Icon from "@/components/ui/Icon";
 import Badge from "@/components/ui/Badge";
 import Confirm from "@/components/ui/Confirm";
@@ -13,6 +13,9 @@ function EditDrawer({ doc, onClose, onSaved, ctx }: { doc: Doc; onClose: () => v
   const [description, setDescription] = useState(doc.description || "");
   const [emplacement, setEmplacement] = useState(doc.emplacement || "");
   const [status, setStatus] = useState(doc.status);
+  const [emplSearch, setEmplSearch] = useState("");
+  const [showEmplSearch, setShowEmplSearch] = useState(false);
+  const emplRef = useRef<HTMLDivElement>(null);
   const [format, setFormat] = useState(doc.format || "");
   const [date, setDate] = useState(doc.date || "");
   const [pages, setPages] = useState(String(doc.pages || ""));
@@ -76,6 +79,14 @@ function EditDrawer({ doc, onClose, onSaved, ctx }: { doc: Doc; onClose: () => v
       setSaving(false);
     }
   };
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (emplRef.current && !emplRef.current.contains(e.target as Node)) setShowEmplSearch(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
 
   return (
     <>
@@ -148,10 +159,37 @@ function EditDrawer({ doc, onClose, onSaved, ctx }: { doc: Doc; onClose: () => v
             </div>
           </div>
 
-          <div className="field" style={{ marginBottom: 16 }}>
+          <div className="field" style={{ position: "relative", marginBottom: 16 }} ref={emplRef}>
             <label>Emplacement</label>
-            <input className="input" value={emplacement} onChange={e => setEmplacement(e.target.value)}
-              placeholder="ex : Armoire B, Rayon 3" />
+            <div className={`select ${emplacement ? "" : "placeholder"}`} style={{ cursor: "pointer", userSelect: "none" }}
+              onClick={() => setShowEmplSearch(!showEmplSearch)}>
+              {emplacement || "— Choisir —"}
+            </div>
+            {showEmplSearch && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: 2,
+                background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--r-md)",
+                boxShadow: "var(--shadow-lg)", overflow: "hidden" }}>
+                <div className="row gap-1 center" style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
+                  <Icon name="search" size={13} className="muted-3" />
+                  <input className="input" style={{ flex: 1, height: 28, fontSize: 12.5, border: "none", outline: "none", background: "none" }}
+                    placeholder="Rechercher un emplacement…" value={emplSearch} autoFocus
+                    onChange={e => setEmplSearch(e.target.value)} />
+                  {emplSearch && <button className="ra-btn" onClick={() => setEmplSearch("")}><Icon name="x" size={13} /></button>}
+                </div>
+                <div style={{ maxHeight: 220, overflowY: "auto" }}>
+                  {(emplSearch ? ctx.emplacements.filter(e => e.toLowerCase().includes(emplSearch.toLowerCase())) : ctx.emplacements).length === 0 ? (
+                    <div className="muted-3" style={{ padding: "12px 14px", fontSize: 12.5 }}>Aucun emplacement trouvé.</div>
+                  ) : (emplSearch ? ctx.emplacements.filter(e => e.toLowerCase().includes(emplSearch.toLowerCase())) : ctx.emplacements).map(e => (
+                    <div key={e} role="button" tabIndex={0}
+                      style={{ padding: "8px 14px", fontSize: 13, cursor: "pointer", borderBottom: "1px solid var(--border)", background: e === emplacement ? "var(--primary-tint)" : "" }}
+                      onClick={() => { setEmplacement(e); setEmplSearch(""); setShowEmplSearch(false); }}
+                      onKeyDown={ev => ev.key === "Enter" && (setEmplacement(e), setShowEmplSearch(false))}>
+                      {e}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
