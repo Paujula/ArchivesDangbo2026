@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Direction;
 use App\Models\Document;
-use App\Models\Historique;
 use App\Models\SerieArchive;
 use App\Models\Service;
 use App\Models\SousSerie;
@@ -190,7 +189,7 @@ class ArchivesController extends Controller
         $document->analyse = $data['description'] ?? null;
         $document->date_enregistrement = $data['date'] ?? now();
         $document->statut = $data['draft'] ? 'brouillon' : 'approuvé';
-        $document->emplacement = $data['emplacement'] ?? null;
+        $document->emplacement = isset($data['emplacement']) ? preg_replace('/\s+/', ' ', trim($data['emplacement'])) : null;
         $document->format = $data['format'] ?? null;
         $document->pages = $data['pages'] ?? null;
         $document->keywords = $data['keywords'] ?? [];
@@ -205,7 +204,9 @@ class ArchivesController extends Controller
         $document->indexed_by = $request->user()->name;
         $document->save();
 
-        if ($document->fichier && $document->original_name && strtolower(pathinfo($document->original_name, PATHINFO_EXTENSION)) === 'pdf') {
+        $skipWatermark = $document->serieArchive && str_starts_with($document->serieArchive->nom_serie, 'État-civil');
+
+        if (!$skipWatermark && $document->fichier && $document->original_name && strtolower(pathinfo($document->original_name, PATHINFO_EXTENSION)) === 'pdf') {
             $fullPath = Storage::disk('public')->path($document->fichier);
             if (file_exists($fullPath)) {
                 try {
@@ -278,7 +279,7 @@ class ArchivesController extends Controller
         $document->titre = $data['title'] ?? $document->titre;
         $document->cote = $data['cote'] ?? $document->cote;
         $document->analyse = $data['description'] ?? $document->analyse;
-        $document->emplacement = $data['emplacement'] ?? $document->emplacement;
+        $document->emplacement = isset($data['emplacement']) ? preg_replace('/\s+/', ' ', trim($data['emplacement'])) : $document->emplacement;
         $document->format = $data['format'] ?? $document->format;
         $document->pages = $data['pages'] ?? $document->pages;
         $document->keywords = $data['keywords'] ?? $document->keywords;
@@ -290,16 +291,20 @@ class ArchivesController extends Controller
         $document->id_sous_serie = $this->resolveSousSerieId($data['sous_serie'] ?? null) ?? $document->id_sous_serie;
         $document->save();
 
-        if (!empty($data['temp_id']) && $document->fichier && $document->original_name && strtolower(pathinfo($document->original_name, PATHINFO_EXTENSION)) === 'pdf') {
-            $fullPath = Storage::disk('public')->path($document->fichier);
-            if (file_exists($fullPath)) {
-                try {
-                    $svc = app(PdfWatermarkService::class);
-                    if (!$svc->hasWatermark($fullPath)) {
-                        $svc->watermark($fullPath, $fullPath);
+        if (!empty($data['temp_id'])) {
+            $skipWatermark = $document->serieArchive && str_starts_with($document->serieArchive->nom_serie, 'État-civil');
+
+            if (!$skipWatermark && $document->fichier && $document->original_name && strtolower(pathinfo($document->original_name, PATHINFO_EXTENSION)) === 'pdf') {
+                $fullPath = Storage::disk('public')->path($document->fichier);
+                if (file_exists($fullPath)) {
+                    try {
+                        $svc = app(PdfWatermarkService::class);
+                        if (!$svc->hasWatermark($fullPath)) {
+                            $svc->watermark($fullPath, $fullPath);
+                        }
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::warning('Watermark échoué à la modification: ' . $e->getMessage());
                     }
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::warning('Watermark échoué à la modification: ' . $e->getMessage());
                 }
             }
         }
@@ -462,7 +467,7 @@ class ArchivesController extends Controller
             'service' => $doc->service?->name ?? $doc->service_id ?? '',
             'direction' => $doc->direction?->nom_direction ?? '',
             'serie' => $doc->serieArchive?->nom_serie ?? '',
-            'sous_serie' => $doc->sousSerie?->libelle_sous_serie ?? '',
+            'sous_serie' => $doc->sousSerie ? \App\Models\SousSerie::cleanLibelle($doc->sousSerie->libelle_sous_serie) : '',
             'emplacement' => $doc->emplacement ?? '',
             'format' => $doc->format ?? 'Numérique',
             'pages' => $doc->pages ?? 0,

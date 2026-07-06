@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -142,8 +143,8 @@ class AuthController extends Controller
             'service' => $user->service ?? '',
             'direction' => $user->direction ?? '',
             'statut_matrimoniale' => $user->statut_matrimoniale ?? '',
-            'carte' => $user->carte ?? '',
-            'initials' => $user->initials ?? strtoupper(substr($user->name, 0, 1)),
+            'carte' => $user->carte ? Storage::disk('public')->url($user->carte) : '',
+            'initials' => $user->initials ?? strtoupper(mb_substr($user->name, 0, 2)),
             'role' => $this->mapRole($user->role),
             'color' => $user->color ?? '#0c6e4a',
             'status' => $user->email_verified_at ? 'actif' : 'inactif',

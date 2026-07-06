@@ -7,7 +7,6 @@ use App\Models\SousSerie;
 use App\Models\SerieArchive;
 use App\Models\Historique;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class DocumentController extends Controller
 {

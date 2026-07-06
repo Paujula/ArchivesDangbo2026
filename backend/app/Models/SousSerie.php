@@ -12,4 +12,10 @@ class SousSerie extends Model
     {
         return $this->belongsTo(SerieArchive::class, 'id_serie');
     }
+
+    public static function cleanLibelle(?string $libelle): string
+    {
+        if (!$libelle) return '';
+        return preg_replace('/^[\dA-Z]+[ —-]+/u', '', $libelle);
+    }
 }

@@ -11,15 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('documents', function (Blueprint $table) {
-            $table->dropColumn('ref');
-        });
+        if (Schema::hasColumn('documents', 'ref')) {
+            Schema::table('documents', function (Blueprint $table) {
+                $table->dropColumn('ref');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('documents', function (Blueprint $table) {
-            $table->string('ref')->unique()->nullable()->after('id_document');
-        });
+        if (!Schema::hasColumn('documents', 'ref')) {
+            Schema::table('documents', function (Blueprint $table) {
+                $table->string('ref')->unique()->nullable()->after('id_document');
+            });
+        }
     }
 };

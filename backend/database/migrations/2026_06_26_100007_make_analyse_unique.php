@@ -10,14 +10,14 @@ return new class extends Migration
     {
         Schema::table('documents', function (Blueprint $table) {
             $table->string('analyse', 500)->nullable()->change();
-            $table->unique('analyse', 'documents_analyse_unique');
+            $table->index('analyse', 'documents_analyse_index');
         });
     }
 
     public function down(): void
     {
         Schema::table('documents', function (Blueprint $table) {
-            $table->dropUnique('documents_analyse_unique');
+            $table->dropIndex('documents_analyse_index');
             $table->text('analyse')->nullable()->change();
         });
     }

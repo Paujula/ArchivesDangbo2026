@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Direction;
+use App\Models\Emplacement;
 use App\Models\SerieArchive;
 use App\Models\Service;
 use App\Models\SousSerie;
@@ -70,7 +71,7 @@ class SettingsController extends Controller
                 'nom_serie' => $s->nom_serie,
                 'sous_series' => $s->sousSeries->map(fn ($ss) => [
                     'id' => $ss->id,
-                    'libelle_sous_serie' => $ss->libelle_sous_serie,
+                    'libelle_sous_serie' => SousSerie::cleanLibelle($ss->libelle_sous_serie),
                 ]),
             ]),
         ]);
@@ -78,8 +79,14 @@ class SettingsController extends Controller
 
     public function listSousSeries(): JsonResponse
     {
+        $sousSeries = SousSerie::with('serie:id,nom_serie')->get(['id', 'libelle_sous_serie', 'id_serie']);
+
         return response()->json([
-            'sous_series' => SousSerie::with('serie:id,nom_serie')->get(['id', 'libelle_sous_serie', 'id_serie']),
+            'sous_series' => $sousSeries->map(fn ($ss) => [
+                'id' => $ss->id,
+                'libelle_sous_serie' => SousSerie::cleanLibelle($ss->libelle_sous_serie),
+                'id_serie' => $ss->id_serie,
+            ]),
         ]);
     }
 
@@ -149,7 +156,7 @@ class SettingsController extends Controller
         return response()->json([
             'sous_serie' => [
                 'id' => $sousSerie->id,
-                'libelle_sous_serie' => $sousSerie->libelle_sous_serie,
+                'libelle_sous_serie' => SousSerie::cleanLibelle($sousSerie->libelle_sous_serie),
                 'id_serie' => $sousSerie->id_serie,
             ],
             'message' => 'Sous-série créée avec succès.',
@@ -169,7 +176,7 @@ class SettingsController extends Controller
         return response()->json([
             'sous_serie' => [
                 'id' => $sousSerie->id,
-                'libelle_sous_serie' => $sousSerie->libelle_sous_serie,
+                'libelle_sous_serie' => SousSerie::cleanLibelle($sousSerie->libelle_sous_serie),
                 'id_serie' => $sousSerie->id_serie,
             ],
             'message' => 'Sous-série modifiée avec succès.',
@@ -233,6 +240,53 @@ class SettingsController extends Controller
         } catch (QueryException) {
             return response()->json(['message' => 'Impossible de supprimer : des sous-séries ou documents sont liés à cette série.'], 409);
         }
+    }
+
+    // ── Emplacements ───────────────────────────────────────────────────────
+
+    public function listEmplacements(): JsonResponse
+    {
+        return response()->json([
+            'emplacements' => Emplacement::all(['id', 'nom_emplacement']),
+        ]);
+    }
+
+    public function createEmplacement(Request $request): JsonResponse
+    {
+        $data = $request->validate(['nom_emplacement' => 'required|string|max:255']);
+        $emplacement = Emplacement::create($data);
+
+        $this->logAction('Création de l\'emplacement', 'settings', "Nom: {$emplacement->nom_emplacement}");
+
+        return response()->json([
+            'emplacement' => ['id' => $emplacement->id, 'nom_emplacement' => $emplacement->nom_emplacement],
+            'message' => 'Emplacement créé avec succès.',
+        ], 201);
+    }
+
+    public function updateEmplacement(Request $request, Emplacement $emplacement): JsonResponse
+    {
+        $data = $request->validate(['nom_emplacement' => 'required|string|max:255']);
+        $emplacement->update($data);
+
+        $this->logAction('Modification de l\'emplacement', 'settings', "Nouveau nom: {$emplacement->nom_emplacement}");
+
+        return response()->json([
+            'emplacement' => ['id' => $emplacement->id, 'nom_emplacement' => $emplacement->nom_emplacement],
+            'message' => 'Emplacement modifié avec succès.',
+        ]);
+    }
+
+    public function deleteEmplacement(Emplacement $emplacement): JsonResponse
+    {
+        $count = \App\Models\Document::where('emplacement', $emplacement->nom_emplacement)->count();
+        if ($count > 0) {
+            return response()->json(['message' => "Impossible de supprimer : {$count} document(s) sont situés à cet emplacement."], 409);
+        }
+
+        $emplacement->delete();
+        $this->logAction('Suppression de l\'emplacement', 'settings', "Nom: {$emplacement->nom_emplacement}");
+        return response()->json(['message' => 'Emplacement supprimé avec succès.']);
     }
 
 }

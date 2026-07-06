@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ArchivesController;
 use App\Http\Controllers\Api\UsersController;
 use App\Http\Controllers\Api\HistoriqueController;
 use App\Http\Controllers\Api\DemandesController;
+use App\Http\Controllers\Api\RapportController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login']);
@@ -22,6 +23,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/settings/series', [SettingsController::class, 'listSeries']);
     Route::get('/settings/sous-series', [SettingsController::class, 'listSousSeries']);
     Route::get('/settings/services', [SettingsController::class, 'listServices']);
+    Route::get('/settings/emplacements', [SettingsController::class, 'listEmplacements']);
 
     // Écriture nomenclature — chef/admin uniquement
     Route::middleware('role:chef,admin')->group(function () {
@@ -37,6 +39,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/settings/services', [SettingsController::class, 'createService']);
         Route::put('/settings/services/{service}', [SettingsController::class, 'updateService']);
         Route::delete('/settings/services/{service}', [SettingsController::class, 'deleteService']);
+        Route::post('/settings/emplacements', [SettingsController::class, 'createEmplacement']);
+        Route::put('/settings/emplacements/{emplacement}', [SettingsController::class, 'updateEmplacement']);
+        Route::delete('/settings/emplacements/{emplacement}', [SettingsController::class, 'deleteEmplacement']);
     });
 
     // Archives — upload/create/edit : chef/admin/archiviste ; delete : chef/admin
@@ -73,5 +78,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:chef,admin')->group(function () {
         Route::put('/demandes/{demande}/approve', [DemandesController::class, 'approve']);
         Route::put('/demandes/{demande}/reject', [DemandesController::class, 'reject']);
+    });
+
+    // Rapport — chef/admin uniquement
+    Route::middleware('role:chef,admin')->group(function () {
+        Route::get('/rapport/documents', [RapportController::class, 'documentsByDate']);
     });
 });
