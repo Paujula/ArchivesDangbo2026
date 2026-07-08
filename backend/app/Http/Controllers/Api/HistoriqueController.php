@@ -45,7 +45,7 @@ class HistoriqueController extends Controller
                     'prenom' => $h->utilisateur->prenom ?? '',
                     'initials' => $h->utilisateur->initials ?? '',
                     'color' => $h->utilisateur->color ?? '#0c6e4a',
-                    'carte' => $h->utilisateur->carte ?? '',
+                    'carte' => $h->utilisateur->carte ? \Illuminate\Support\Facades\Storage::disk('public')->url($h->utilisateur->carte) : '',
                 ] : null,
                 'document' => $h->document ? [
                     'id' => (string) $h->document->id_document,
@@ -61,10 +61,42 @@ class HistoriqueController extends Controller
         ]);
     }
 
+    public function deletedItems(Request $request): JsonResponse
+    {
+        $perPage = min((int) ($request->get('per_page', 50)), 100);
+
+        $query = Historique::with('utilisateur')
+            ->where(function ($q) {
+                $q->where('action', 'like', 'Suppression du document%')
+                  ->orWhere('action', 'like', 'Suppression de l\'utilisateur%');
+            })
+            ->orderBy('date_action', 'desc');
+
+        $items = $query->paginate($perPage);
+
+        return response()->json([
+            'items' => $items->map(fn ($h) => [
+                'id' => $h->id,
+                'action' => $h->action,
+                'type' => $h->type ?? 'document',
+                'details' => $h->details ?? '',
+                'date_action' => $h->date_action ? (new \Carbon\Carbon($h->date_action))->toIso8601String() : '',
+                'user' => $h->utilisateur ? [
+                    'id' => (string) $h->utilisateur->id,
+                    'name' => $h->utilisateur->name ?? '',
+                    'prenom' => $h->utilisateur->prenom ?? '',
+                ] : null,
+            ])->values()->all(),
+            'total' => $items->total(),
+            'per_page' => $items->perPage(),
+            'current_page' => $items->currentPage(),
+            'last_page' => $items->lastPage(),
+        ]);
+    }
+
     public function stats(): JsonResponse
     {
         $totalDocs = \App\Models\Document::count();
-        $today = now()->startOfDay();
         $weekStart = now()->startOfWeek();
 
         $docsThisWeek = \App\Models\Document::where('created_at', '>=', $weekStart)->count();

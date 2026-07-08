@@ -44,28 +44,35 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/settings/emplacements/{emplacement}', [SettingsController::class, 'deleteEmplacement']);
     });
 
-    // Archives — upload/create/edit : chef/admin/archiviste ; delete : chef/admin
+    // Archives — upload/create/edit/delete : chef/admin/archiviste ; delete : chef/admin
     Route::post('/archives/upload', [ArchivesController::class, 'upload'])->middleware('role:chef,admin,archiviste');
+    Route::get('/archives/deleted', [ArchivesController::class, 'trashed'])->middleware('role:chef,admin');
+    Route::post('/archives/batch-force-delete', [ArchivesController::class, 'batchForceDelete'])->middleware('role:chef,admin');
     Route::get('/archives', [ArchivesController::class, 'index']);
     Route::post('/archives', [ArchivesController::class, 'store'])->middleware('role:chef,admin,archiviste');
     Route::get('/archives/{document}', [ArchivesController::class, 'show']);
     Route::put('/archives/{document}', [ArchivesController::class, 'update'])->middleware('role:chef,admin,archiviste');
     Route::delete('/archives/{document}', [ArchivesController::class, 'destroy'])->middleware('role:chef,admin');
+    Route::post('/archives/{document}/restore', [ArchivesController::class, 'restore'])->middleware('role:chef,admin')->withTrashed();
     Route::post('/archives/{document}/view', [ArchivesController::class, 'recordView']);
     Route::get('/archives/{document}/related', [ArchivesController::class, 'related']);
-    Route::get('/archives/{document}/download', [ArchivesController::class, 'download']);
+    Route::get('/archives/{document}/download', [ArchivesController::class, 'download'])->withTrashed();
 
     // Utilisateurs — chef/admin uniquement
     Route::middleware('role:chef,admin')->group(function () {
+        Route::get('/users/deleted', [UsersController::class, 'trashed']);
+        Route::post('/users/batch-force-delete', [UsersController::class, 'batchForceDelete']);
         Route::get('/users', [UsersController::class, 'index']);
         Route::post('/users', [UsersController::class, 'store']);
         Route::put('/users/{user}', [UsersController::class, 'update']);
         Route::delete('/users/{user}', [UsersController::class, 'deactivate']);
         Route::delete('/users/{user}/force', [UsersController::class, 'destroy']);
+        Route::post('/users/{user}/restore', [UsersController::class, 'restore'])->withTrashed();
         Route::post('/users/{user}/activate', [UsersController::class, 'activate']);
         Route::post('/users/{user}/carte', [UsersController::class, 'uploadCarte']);
     });
 
+    Route::get('/historiques/deleted-items', [HistoriqueController::class, 'deletedItems'])->middleware('role:chef,admin');
     Route::get('/historiques', [HistoriqueController::class, 'index']);
     Route::get('/dashboard/stats', [HistoriqueController::class, 'stats']);
 

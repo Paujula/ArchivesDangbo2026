@@ -8,7 +8,6 @@ use App\Models\Document;
 use App\Models\SerieArchive;
 use App\Models\Service;
 use App\Models\SousSerie;
-use App\Models\TypeArchive;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -123,7 +122,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Maoudo Djossou',
                 'email' => 'maoudo.djossou@dangbo.bj',
-                'password' => bcrypt('dangbo2024'),
+                'password' => bcrypt('Dangbo2026'),
                 'role' => 'admin',
                 'service' => 'Cabinet du Maire',
                 'initials' => 'MD',
@@ -134,7 +133,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Rachelle Akplogan',
                 'email' => 'rachelle.akplogan@dangbo.bj',
-                'password' => bcrypt('dangbo2024'),
+                'password' => bcrypt('Dangbo2026'),
                 'role' => 'archiviste',
                 'service' => 'Secrétariat Général',
                 'initials' => 'RA',
@@ -145,7 +144,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Ange Tossou',
                 'email' => 'a.tossou@dangbo.bj',
-                'password' => bcrypt('dangbo2024'),
+                'password' => bcrypt('Dangbo2026'),
                 'role' => 'agent',
                 'service' => 'Affaires Sociales',
                 'initials' => 'AT',
@@ -157,19 +156,6 @@ class DatabaseSeeder extends Seeder
 
         foreach ($users as $user) {
             User::firstOrCreate(['email' => $user['email']], $user);
-        }
-
-        // ── Types d'archives ──────────────────────────────────────────────────
-        $types = [
-            ['name' => 'Administration', 'badge' => '#0c6e4a'],
-            ['name' => 'Arrêtés', 'badge' => '#c98a16'],
-            ['name' => 'Délibérations', 'badge' => '#3c5d76'],
-            ['name' => 'Correspondance', 'badge' => '#6a4d8c'],
-            ['name' => 'Marchés', 'badge' => '#c1322b'],
-        ];
-
-        foreach ($types as $t) {
-            TypeArchive::firstOrCreate(['name' => $t['name']], $t);
         }
 
         // ── Documents ──────────────────────────────────────────────────────────
@@ -197,7 +183,8 @@ class DatabaseSeeder extends Seeder
                 'service_id' => $serviceEC?->id, 'direction_id' => $dirAS?->id,
                 'date_enregistrement' => '2024-12-02', 'statut' => 'Courante',
                 'format' => 'Registre relié', 'pages' => 214,
-                'ref' => 'DGB-EC-2024-1187', 'user_id' => $userRachelle?->id,
+                'keywords' => ['naissance', 'Hozin', 'registre'],
+                'user_id' => $userRachelle?->id,
                 'indexed_by' => 'Rachelle Akplogan',
             ],
             [
@@ -206,7 +193,8 @@ class DatabaseSeeder extends Seeder
                 'service_id' => $serviceTech?->id, 'direction_id' => $dirDU?->id,
                 'date_enregistrement' => '2024-11-21', 'statut' => 'Courante',
                 'format' => 'Plan grand format', 'pages' => 9,
-                'ref' => 'DGB-URB-2024-0412', 'user_id' => $userRachelle?->id,
+                'keywords' => ['permis', 'Dèkin', 'construction'],
+                'user_id' => $userRachelle?->id,
                 'indexed_by' => 'Rachelle Akplogan',
             ],
             [
@@ -215,7 +203,8 @@ class DatabaseSeeder extends Seeder
                 'service_id' => $serviceSG?->id, 'direction_id' => $dirAG?->id,
                 'date_enregistrement' => '2024-12-05', 'statut' => 'Courante',
                 'format' => 'Feuille volante', 'pages' => 3,
-                'ref' => 'DGB-CRR-2024-2890', 'user_id' => $userMaoudo?->id,
+                'keywords' => ['FADeC', 'subvention', 'préfecture'],
+                'user_id' => $userMaoudo?->id,
                 'indexed_by' => 'Maoudo Djossou',
             ],
             [
@@ -224,7 +213,8 @@ class DatabaseSeeder extends Seeder
                 'service_id' => $serviceEC?->id, 'direction_id' => $dirAS?->id,
                 'date_enregistrement' => '1998-06-30', 'statut' => 'Définitive',
                 'format' => 'Registre relié', 'pages' => 156,
-                'ref' => 'DGB-EC-1998-0034', 'user_id' => $userRachelle?->id,
+                'keywords' => ['mariage', '1998', 'Dangbo'],
+                'user_id' => $userRachelle?->id,
                 'indexed_by' => 'Rachelle Akplogan',
             ],
             [
@@ -233,7 +223,8 @@ class DatabaseSeeder extends Seeder
                 'service_id' => $serviceSG?->id, 'direction_id' => $dirAG?->id,
                 'date_enregistrement' => '2024-11-28', 'statut' => 'Courante',
                 'format' => 'Feuille volante', 'pages' => 18,
-                'ref' => 'DGB-CPT-2024-0077', 'user_id' => $userMaoudo?->id,
+                'keywords' => ['budget', '2025', 'conseil'],
+                'user_id' => $userMaoudo?->id,
                 'indexed_by' => 'Maoudo Djossou',
             ],
             [
@@ -242,7 +233,8 @@ class DatabaseSeeder extends Seeder
                 'service_id' => $serviceTech?->id, 'direction_id' => $dirDU?->id,
                 'date_enregistrement' => '2023-09-12', 'statut' => 'Intermédiaire',
                 'format' => 'Plan grand format', 'pages' => 6,
-                'ref' => 'DGB-URB-2023-0301', 'user_id' => $userRachelle?->id,
+                'keywords' => ['lotissement', 'Gbéko', 'foncier'],
+                'user_id' => $userRachelle?->id,
                 'indexed_by' => 'Rachelle Akplogan',
             ],
         ];
@@ -255,9 +247,9 @@ class DatabaseSeeder extends Seeder
         $this->command->info('   ' . SousSerie::count() . ' sous-séries');
         $this->command->info('   ' . SerieArchive::count() . ' séries d\'archives');
         $this->command->info('✅ 3 utilisateurs créés :');
-        $this->command->info('   admin      → maoudo.djossou@dangbo.bj / dangbo2024');
-        $this->command->info('   archiviste → rachelle.akplogan@dangbo.bj / dangbo2024');
-        $this->command->info('   agent      → a.tossou@dangbo.bj / dangbo2024');
+        $this->command->info('   admin      → maoudo.djossou@dangbo.bj / Dangbo2026');
+        $this->command->info('   archiviste → rachelle.akplogan@dangbo.bj / Dangbo2026');
+        $this->command->info('   agent      → a.tossou@dangbo.bj / Dangbo2026');
         $this->command->info('✅ ' . count($docs) . ' documents d\'exemple créés.');
     }
 }

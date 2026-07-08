@@ -6,19 +6,21 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
     'name', 'prenom', 'email', 'password', 'telephone', 'adresse',
-    'service', 'direction', 'statut_matrimoniale', 'role', 'carte'
+    'service', 'direction', 'statut_matrimoniale', 'role', 'carte',
+    'deleted_by',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected function casts(): array
     {
@@ -43,6 +45,11 @@ class User extends Authenticatable
     public function documents()
     {
         return $this->hasMany(Document::class, 'user_id');
+    }
+
+    public function deleter()
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 
     public function isAdmin(): bool

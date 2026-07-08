@@ -19,7 +19,7 @@ class ArchivesController extends Controller
     use Auditable;
     public function upload(Request $request): JsonResponse
     {
-        $data = $request->validate(['file' => 'required|file|max:102400']);
+        $request->validate(['file' => 'required|file|max:102400']);
 
         $file = $request->file('file');
         $path = $file->store('temp', 'public');
@@ -122,22 +122,27 @@ class ArchivesController extends Controller
         }
 
         $perPage = min((int) $request->get('per_page', 20), 100);
-        $lastViewCol = \Illuminate\Support\Facades\DB::table('historiques')
-            ->selectRaw('MAX(date_action)')
-            ->whereColumn('id_document', 'documents.id_document')
-            ->where('action', 'like', 'Consultation%');
-
         switch ($request->get('sort')) {
             case 'recent':
                 // Documents consultés récemment (avec vue), triés par dernière consultation
                 $query->where('views', '>', 0);
-                $query->orderByDesc($lastViewCol)->orderBy('id_document', 'desc');
+                $query->orderByDesc(
+                    \Illuminate\Support\Facades\DB::table('historiques')
+                        ->selectRaw('MAX(date_action)')
+                        ->whereColumn('id_document', 'documents.id_document')
+                        ->where('action', 'like', 'Consultation%')
+                )->orderBy('id_document', 'desc');
                 break;
             case 'ancien':
             case 'oldest':
                 // Documents consultés il y a longtemps
                 $query->where('views', '>', 0);
-                $query->orderBy($lastViewCol)->orderBy('id_document', 'asc');
+                $query->orderBy(
+                    \Illuminate\Support\Facades\DB::table('historiques')
+                        ->selectRaw('MAX(date_action)')
+                        ->whereColumn('id_document', 'documents.id_document')
+                        ->where('action', 'like', 'Consultation%')
+                )->orderBy('id_document', 'asc');
                 break;
             case 'titre':
             case 'title':
@@ -204,21 +209,7 @@ class ArchivesController extends Controller
         $document->indexed_by = $request->user()->name;
         $document->save();
 
-        $skipWatermark = $document->serieArchive && str_starts_with($document->serieArchive->nom_serie, 'État-civil');
-
-        if (!$skipWatermark && $document->fichier && $document->original_name && strtolower(pathinfo($document->original_name, PATHINFO_EXTENSION)) === 'pdf') {
-            $fullPath = Storage::disk('public')->path($document->fichier);
-            if (file_exists($fullPath)) {
-                try {
-                    $svc = app(PdfWatermarkService::class);
-                    if (!$svc->hasWatermark($fullPath)) {
-                        $svc->watermark($fullPath, $fullPath);
-                    }
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::warning('Watermark échoué à l\'upload: ' . $e->getMessage());
-                }
-            }
-        }
+        $this->applyWatermark($document);
 
         $this->logAction('Création du document', 'document', "Titre: {$document->titre} | Cote: {$document->cote} | Analyse: {$document->analyse} | Fichier: {$document->original_name} | Pages: {$document->pages} | Format: {$document->format} | Service: {$document->service_id}", $document->id_document);
 
@@ -292,21 +283,7 @@ class ArchivesController extends Controller
         $document->save();
 
         if (!empty($data['temp_id'])) {
-            $skipWatermark = $document->serieArchive && str_starts_with($document->serieArchive->nom_serie, 'État-civil');
-
-            if (!$skipWatermark && $document->fichier && $document->original_name && strtolower(pathinfo($document->original_name, PATHINFO_EXTENSION)) === 'pdf') {
-                $fullPath = Storage::disk('public')->path($document->fichier);
-                if (file_exists($fullPath)) {
-                    try {
-                        $svc = app(PdfWatermarkService::class);
-                        if (!$svc->hasWatermark($fullPath)) {
-                            $svc->watermark($fullPath, $fullPath);
-                        }
-                    } catch (\Exception $e) {
-                        \Illuminate\Support\Facades\Log::warning('Watermark échoué à la modification: ' . $e->getMessage());
-                    }
-                }
-            }
+            $this->applyWatermark($document);
         }
 
         $changes = [];
@@ -351,17 +328,101 @@ class ArchivesController extends Controller
         ]);
     }
 
-    public function destroy(Document $document): JsonResponse
+    public function destroy(Request $request, Document $document): JsonResponse
     {
-        $this->logAction('Suppression du document', 'document', "Cote: {$document->cote} | Titre: {$document->titre} | Analyse: {$document->analyse} | Fichier: {$document->original_name}", $document->id_document);
+        $document->loadMissing(['service', 'direction', 'serieArchive', 'sousSerie']);
 
-        if ($document->fichier) {
-            Storage::disk('public')->delete($document->fichier);
-        }
+        $this->logAction('Suppression du document', 'document',
+            "Cote: {$document->cote} | Titre: {$document->titre} | Analyse: {$document->analyse} | " .
+            "Emplacement: {$document->emplacement} | Service: {$document->service?->name} | " .
+            "Direction: {$document->direction?->nom_direction} | Série: {$document->serieArchive?->nom_serie} | " .
+            "Sous-série: {$document->sousSerie?->libelle_sous_serie} | Format: {$document->format} | " .
+            "Pages: {$document->pages} | Statut: {$document->statut} | Accès restreint: " . ($document->restricted ? 'Oui' : 'Non') . " | " .
+            "Date: {$document->date_enregistrement?->format('d/m/Y')} | Fichier: {$document->original_name}",
+            $document->id_document
+        );
+
+        $document->deleted_by = $request->user()->id;
+        $document->save();
 
         $document->delete();
 
-        return response()->json(['message' => 'Document supprimé avec succès.']);
+        return response()->json(['message' => 'Document mis à la corbeille.']);
+    }
+
+    public function trashed(Request $request): JsonResponse
+    {
+        $perPage = min((int) ($request->get('per_page', 50)), 100);
+
+        $documents = Document::with(['service', 'direction', 'serieArchive', 'sousSerie'])
+            ->onlyTrashed()
+            ->orderBy('deleted_at', 'desc')
+            ->paginate($perPage);
+
+        return response()->json([
+            'documents' => $documents->map(fn ($d) => [
+                'id' => (string) $d->id_document,
+                'cote' => $d->cote,
+                'titre' => $d->titre,
+                'analyse' => $d->analyse,
+                'emplacement' => $d->emplacement,
+                'original_name' => $d->original_name,
+                'format' => $d->format,
+                'pages' => $d->pages,
+                'statut' => $d->statut,
+                'restricted' => $d->restricted,
+                'date_enregistrement' => $d->date_enregistrement?->toIso8601String(),
+                'fichier' => $d->fichier ? \Illuminate\Support\Facades\Storage::disk('public')->url($d->fichier) : null,
+                'deleted_at' => $d->deleted_at?->toIso8601String(),
+                'service' => $d->service?->name,
+                'direction' => $d->direction?->nom_direction,
+                'serie' => $d->serieArchive?->nom_serie,
+                'sous_serie' => $d->sousSerie?->libelle_sous_serie,
+                'deleter' => $d->deleter ? [
+                    'id' => (string) $d->deleter->id,
+                    'name' => $d->deleter->name,
+                    'prenom' => $d->deleter->prenom,
+                ] : null,
+            ])->values()->all(),
+            'total' => $documents->total(),
+            'per_page' => $documents->perPage(),
+            'current_page' => $documents->currentPage(),
+            'last_page' => $documents->lastPage(),
+        ]);
+    }
+
+    public function restore(Request $request, Document $document): JsonResponse
+    {
+        $document->restore();
+
+        $this->logAction('Restauration du document', 'document',
+            "Cote: {$document->cote} | Titre: {$document->titre}",
+            $document->id_document
+        );
+
+        return response()->json(['message' => 'Document restauré avec succès.']);
+    }
+
+    public function batchForceDelete(Request $request): JsonResponse
+    {
+        $request->validate(['ids' => 'required|array', 'ids.*' => 'integer']);
+
+        $docs = Document::onlyTrashed()->whereIn('id_document', $request->ids)->get();
+        $count = 0;
+
+        foreach ($docs as $doc) {
+            if ($doc->fichier) {
+                Storage::disk('public')->delete($doc->fichier);
+            }
+            $this->logAction('Suppression définitive du document', 'document',
+                "Cote: {$doc->cote} | Titre: {$doc->titre} | Fichier: {$doc->original_name}",
+                $doc->id_document
+            );
+            $doc->forceDelete();
+            $count++;
+        }
+
+        return response()->json(['message' => "{$count} document(s) supprimé(s) définitivement."]);
     }
 
     public function recordView(Request $request, Document $document): JsonResponse
@@ -420,11 +481,30 @@ class ArchivesController extends Controller
 
                 return $isSave
                     ? $disk->download($p, $document->original_name)
-                    : $disk->response($p);
+                    : $disk->response($p, $document->original_name);
             }
         }
 
         return response()->json(['message' => 'Fichier introuvable.'], 404);
+    }
+
+    private function applyWatermark(Document $document): void
+    {
+        $skipWatermark = $document->serieArchive && str_starts_with($document->serieArchive->nom_serie, 'État-civil');
+        if ($skipWatermark || !$document->fichier || !$document->original_name) return;
+        if (strtolower(pathinfo($document->original_name, PATHINFO_EXTENSION)) !== 'pdf') return;
+
+        $fullPath = Storage::disk('public')->path($document->fichier);
+        if (!file_exists($fullPath)) return;
+
+        try {
+            $svc = app(PdfWatermarkService::class);
+            if (!$svc->hasWatermark($fullPath)) {
+                $svc->watermark($fullPath, $fullPath);
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Watermark échoué: ' . $e->getMessage());
+        }
     }
 
     private function resolveDirectionId(?string $value): ?string

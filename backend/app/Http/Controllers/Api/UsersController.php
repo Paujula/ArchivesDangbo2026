@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Traits\Auditable;
+use App\Traits\FormatsUsers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -13,7 +14,7 @@ use Illuminate\Validation\Rule;
 
 class UsersController extends Controller
 {
-    use Auditable;
+    use Auditable, FormatsUsers;
     public function index(Request $request): JsonResponse
     {
         $query = User::query();
@@ -201,15 +202,88 @@ class UsersController extends Controller
             return response()->json(['message' => 'Impossible de supprimer le dernier administrateur.'], 403);
         }
 
-        $this->logAction('Suppression de l\'utilisateur', 'utilisateur', "Utilisateur: {$user->prenom} {$user->name} | Email: {$user->email} | Rôle: " . $this->mapRole($user->role) . " | Service: {$user->service} | Direction: {$user->direction} | Carte: " . ($user->carte ? 'Disponible' : 'Non fournie'));
+        $carteUrl = $user->carte ? url('storage/' . $user->carte) : '';
+        $this->logAction('Suppression de l\'utilisateur', 'utilisateur',
+            "Utilisateur: {$user->prenom} {$user->name} | Email: {$user->email} | Rôle: " . $this->mapRole($user->role) . " | " .
+            "Téléphone: {$user->telephone} | Adresse: {$user->adresse} | Service: {$user->service} | " .
+            "Direction: {$user->direction} | Situation matrimoniale: {$user->statut_matrimoniale} | " .
+            "Carte: {$carteUrl}"
+        );
 
-        if ($user->carte) {
-            Storage::disk('public')->delete($user->carte);
-        }
-        $user->tokens()->delete();
+        $user->deleted_by = $authUser->id;
+        $user->save();
         $user->delete();
 
-        return response()->json(['message' => 'Utilisateur supprimé définitivement.']);
+        return response()->json(['message' => 'Utilisateur mis à la corbeille.']);
+    }
+
+    public function trashed(Request $request): JsonResponse
+    {
+        $perPage = min((int) ($request->get('per_page', 50)), 100);
+
+        $users = User::with('deleter')
+            ->onlyTrashed()
+            ->orderBy('deleted_at', 'desc')
+            ->paginate($perPage);
+
+        return response()->json([
+            'users' => $users->map(fn ($u) => [
+                'id' => (string) $u->id,
+                'name' => $u->name,
+                'prenom' => $u->prenom,
+                'email' => $u->email,
+                'telephone' => $u->telephone,
+                'adresse' => $u->adresse,
+                'service' => $u->service,
+                'direction' => $u->direction,
+                'statut_matrimoniale' => $u->statut_matrimoniale,
+                'role' => $u->role,
+                'carte' => $u->carte ? \Illuminate\Support\Facades\Storage::disk('public')->url($u->carte) : '',
+                'deleted_at' => $u->deleted_at?->toIso8601String(),
+                'deleter' => $u->deleter ? [
+                    'id' => (string) $u->deleter->id,
+                    'name' => $u->deleter->name,
+                    'prenom' => $u->deleter->prenom,
+                ] : null,
+            ])->values()->all(),
+            'total' => $users->total(),
+            'per_page' => $users->perPage(),
+            'current_page' => $users->currentPage(),
+            'last_page' => $users->lastPage(),
+        ]);
+    }
+
+    public function restore(Request $request, User $user): JsonResponse
+    {
+        $user->restore();
+
+        $this->logAction('Restauration de l\'utilisateur', 'utilisateur',
+            "Utilisateur: {$user->prenom} {$user->name} | Email: {$user->email}"
+        );
+
+        return response()->json(['message' => 'Utilisateur restauré avec succès.']);
+    }
+
+    public function batchForceDelete(Request $request): JsonResponse
+    {
+        $request->validate(['ids' => 'required|array', 'ids.*' => 'integer']);
+
+        $users = User::onlyTrashed()->whereIn('id', $request->ids)->get();
+        $count = 0;
+
+        foreach ($users as $user) {
+            if ($user->carte) {
+                Storage::disk('public')->delete($user->carte);
+            }
+            $user->tokens()->delete();
+            $this->logAction('Suppression définitive de l\'utilisateur', 'utilisateur',
+                "Utilisateur: {$user->prenom} {$user->name} | Email: {$user->email}"
+            );
+            $user->forceDelete();
+            $count++;
+        }
+
+        return response()->json(['message' => "{$count} utilisateur(s) supprimé(s) définitivement."]);
     }
 
     public function uploadCarte(Request $request, User $user): JsonResponse
@@ -230,52 +304,5 @@ class UsersController extends Controller
             'carte_url' => Storage::disk('public')->url($path),
             'message' => 'Carte téléchargée avec succès.',
         ]);
-    }
-
-    private function formatUser(User $user): array
-    {
-        return [
-            'id' => (string) $user->id,
-            'nom' => $user->name,
-            'prenom' => $user->prenom ?? '',
-            'name' => $user->prenom ? trim($user->prenom . ' ' . $user->name) : $user->name,
-            'email' => $user->email,
-            'telephone' => $user->telephone ?? '',
-            'adresse' => $user->adresse ?? '',
-            'service' => $user->service ?? '',
-            'direction' => $user->direction ?? '',
-            'statut_matrimoniale' => $user->statut_matrimoniale ?? '',
-            'carte' => $user->carte ? Storage::disk('public')->url($user->carte) : '',
-            'initials' => $user->initials ?? strtoupper(mb_substr($user->name, 0, 2)),
-            'role' => $this->mapRole($user->role),
-            'color' => $user->color ?? '#0c6e4a',
-            'status' => $user->email_verified_at ? 'actif' : 'inactif',
-            'rights' => $user->rights ?? [],
-            'last_login_at' => $user->last_login_at
-                ? (is_string($user->last_login_at) ? $user->last_login_at : $user->last_login_at->toIso8601String())
-                : null,
-        ];
-    }
-
-    private function mapRole(?string $role): string
-    {
-        return match ($role) {
-            'chef' => 'chef',
-            'admin' => 'admin',
-            'archiviste' => 'saisisseur',
-            'agent' => 'consultant',
-            default => 'consultant',
-        };
-    }
-
-    private function unmapRole(string $role): string
-    {
-        return match ($role) {
-            'chef' => 'chef',
-            'admin' => 'admin',
-            'saisisseur' => 'archiviste',
-            'consultant' => 'agent',
-            default => 'agent',
-        };
     }
 }

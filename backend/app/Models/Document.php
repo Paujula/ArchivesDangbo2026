@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Document extends Model
 {
+    use SoftDeletes;
+
     protected $primaryKey = 'id_document';
 
     protected $fillable = [
@@ -13,6 +16,7 @@ class Document extends Model
         'emplacement', 'fichier', 'original_name', 'id_serie', 'id_sous_serie', 'user_id',
         'service_id', 'direction_id',
         'format', 'pages', 'keywords', 'restricted', 'views', 'size', 'indexed_by',
+        'deleted_by',
     ];
 
     protected function casts(): array
@@ -57,5 +61,10 @@ class Document extends Model
     public function historiques()
     {
         return $this->hasMany(Historique::class, 'id_document');
+    }
+
+    public function deleter()
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 }

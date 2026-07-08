@@ -118,7 +118,7 @@ class SettingsController extends Controller
     {
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'direction_id' => 'required|exists:directions,id',
+            'direction_id' => 'sometimes|exists:directions,id',
         ]);
         $service->update($data);
         $service->load('direction:id,nom_direction');
