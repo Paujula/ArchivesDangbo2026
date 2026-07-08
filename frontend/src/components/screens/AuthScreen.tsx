@@ -152,11 +152,7 @@ export default function AuthScreen() {
     }
     setLoading(true);
     try {
-      const res = await api.auth.forgotPassword(email.trim());
-      // En mode démo, le backend retourne le token directement
-      if (res.reset_token) {
-        setResetToken(res.reset_token);
-      }
+      await api.auth.forgotPassword(email.trim());
       setMode('sent');
     } catch (e) {
       if (e instanceof ApiError) {
@@ -270,7 +266,7 @@ export default function AuthScreen() {
               </div>
               <div className="row gap-2 center muted-3" style={{ fontSize: 11, marginTop: 12, justifyContent: 'center' }}>
                 <Icon name="key" size={13} />
-                <span>Mot de passe de démo : <span className="mono" style={{ color: 'var(--text-2)' }}>dangbo2024</span></span>
+                <span>Mot de passe de démo : <span className="mono" style={{ color: 'var(--text-2)' }}>Dangbo2026</span></span>
               </div>
             </div>
           )}

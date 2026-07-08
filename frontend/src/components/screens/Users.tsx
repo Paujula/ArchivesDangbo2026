@@ -8,6 +8,8 @@ import Switch from "@/components/ui/Switch";
 import Confirm from "@/components/ui/Confirm";
 import { ROLES } from "@/lib/data";
 import { api, ApiError } from "@/lib/api";
+import { formatRelative } from "@/lib/utils";
+import { apiUserToUser } from "@/context/AppContext";
 import type { AppCtx, User } from "@/lib/types";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -59,28 +61,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
     setLoading(true);
     try {
       const { users } = await api.users.list();
-      // Convertir ApiUser → User (format frontend)
-      setAllUsers(users.map(u => ({
-        id:       u.id,
-        nom:      u.nom,
-        prenom:   u.prenom,
-        name:     u.name,
-        email:    u.email,
-        telephone: u.telephone,
-        adresse:  u.adresse,
-        service:  u.service,
-        direction: u.direction,
-        statut_matrimoniale: u.statut_matrimoniale,
-        carte:    u.carte,
-        initials: u.initials,
-        role:     u.role,
-        color:    u.color,
-        status:   u.status,
-        rights:   u.rights,
-        last:     u.last_login_at
-          ? formatRelative(u.last_login_at)
-          : "Jamais connecté",
-      })));
+      setAllUsers(users.map(u => apiUserToUser(u)));
     } catch {
       ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les utilisateurs." });
     } finally {
@@ -328,7 +309,6 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
 
   // ── Révoquer accès (désactiver depuis le drawer) ──────────────────────────
 
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirm, setConfirm] = useState<{ msg: string; onConfirm: () => void } | null>(null);
 
   const deleteUser = async () => {
@@ -339,7 +319,6 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
       setAllUsers(us => us.filter(x => x.id !== draft.id));
       ctx.toast({ tone: "danger", title: "Utilisateur supprimé", body: `${draft.prenom ? `${draft.prenom} ${draft.nom}` : draft.name} a été supprimé définitivement.` });
       setDraft(null);
-      setConfirmDelete(false);
     } catch (e) {
       ctx.toast({ tone: "danger", title: "Erreur", body: e instanceof ApiError ? e.message : "Erreur réseau." });
     } finally {
@@ -360,16 +339,6 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
     } finally {
       setSaving(false);
     }
-  };
-
-  // ── Téléchargement carte ─────────────────────────────────────────────────
-
-  const downloadCard = (u: User) => {
-    const ext = u.carte.match(/\.(\w+)(\?|$)/)?.[1] || "jpg";
-    const a = document.createElement("a");
-    a.href = u.carte;
-    a.download = `carte-${u.prenom || ""}-${u.nom || u.name || u.id}.${ext}`.replace(/\s+/g, "-").replace(/-+$/, "");
-    a.click();
   };
 
   // ── Filtrage ──────────────────────────────────────────────────────────────
@@ -767,6 +736,18 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
                 </div>
               )}
 
+              {/* Statut */}
+              <div className="field" style={{ marginTop: 18, marginBottom: 0 }}>
+                <label>Statut du compte</label>
+                <div className="row gap-2">
+                  {(["actif", "inactif"] as const).map(s => (
+                    <button key={s} className={draft.status === s ? "btn btn-primary btn-sm" : "btn btn-ghost btn-sm"} style={{ flex: 1 }} onClick={() => patchDraft({ status: s })}>
+                      {s === "actif" ? "Actif" : "Inactif"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
             </div>
 
             {/* Footer drawer */}
@@ -866,17 +847,4 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
   );
 }
 
-// ── Helper date relative ──────────────────────────────────────────────────────
 
-function formatRelative(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1)   return "il y a quelques secondes";
-  if (mins < 60)  return `il y a ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs  < 24)  return `il y a ${hrs} h`;
-  const days = Math.floor(hrs / 24);
-  if (days === 1) return "hier";
-  if (days < 30)  return `il y a ${days} j`;
-  return new Date(iso).toLocaleDateString("fr-FR");
-}

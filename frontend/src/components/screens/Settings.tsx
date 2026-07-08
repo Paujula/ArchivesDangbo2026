@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Icon from "@/components/ui/Icon";
 import Confirm from "@/components/ui/Confirm";
-import { ROLES } from "@/lib/data";
 import type { AppCtx } from "@/lib/types";
 
 function AddInline({ placeholder, onAdd, btn = "Ajouter" }: {

@@ -11,12 +11,15 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [q, setQ] = useState("");
 
-  const fetchDocs = useCallback(async () => {
+  const fetchDocs = useCallback(async (searchQ?: string) => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.archives.list({ user_id: ctx.user.id });
+      const params: Record<string, unknown> = { user_id: ctx.user.id };
+      if (searchQ) params.q = searchQ;
+      const res = await api.archives.list(params);
       setDocs(res.archives);
       setTotal(res.total);
     } catch {
@@ -27,8 +30,8 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
   }, [ctx.user.id]);
 
   useEffect(() => {
-    fetchDocs();
-  }, [fetchDocs]);
+    fetchDocs(q || undefined);
+  }, [fetchDocs, q]);
 
   return (
     <div className="content-pad" style={{ maxWidth: 1400 }}>
@@ -41,6 +44,19 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
         <button className="btn btn-primary" onClick={() => ctx.navigate("ingest")}>
           <Icon name="plus" size={16} />Ajouter une archive
         </button>
+      </div>
+
+      <div className="card" style={{ padding: "10px 14px", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Icon name="search" size={18} className="muted-3" />
+          <input
+            value={q} onChange={e => setQ(e.target.value)}
+            placeholder="Rechercher par titre, référence, mot-clé…"
+            style={{ flex: 1, border: "none", outline: "none", background: "none", fontSize: 14 }}
+          />
+          {q && <button className="ra-btn" onClick={() => setQ("")}><Icon name="x" size={16} /></button>}
+        </div>
+
       </div>
 
       <div className="card" style={{ overflow: "hidden" }}>
@@ -69,7 +85,7 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
                 <tr>
                   <th style={{ width: 90 }}>Cote</th>
                   <th>Titre</th>
-                  <th style={{ width: 130 }}>Description</th>
+                  <th style={{ width: 130 }}>Mot clé</th>
                   <th style={{ width: 100 }}>Série</th>
                   <th style={{ width: 110 }}>Sous-série</th>
                   <th style={{ width: 110 }}>Service</th>
@@ -91,8 +107,8 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
 
                     </td>
                     <td>
-                      {d.description
-                        ? <span style={{ fontSize: 11.5 }}>{d.description.length > 40 ? d.description.slice(0, 40) + "…" : d.description}</span>
+                      {d.kw?.length
+                        ? <span style={{ fontSize: 11.5 }}>{d.kw.join(", ").length > 40 ? d.kw.join(", ").slice(0, 40) + "…" : d.kw.join(", ")}</span>
                         : <span className="muted-3" style={{ fontSize: 11.5 }}>—</span>}
                     </td>
                     <td><Badge>{d.serie || d.type || "—"}</Badge></td>
@@ -101,6 +117,9 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
                     <td><span className="mono tnum" style={{ fontSize: 12 }}>{d.date ? new Date(d.date).toLocaleDateString("fr-FR") : "—"}</span></td>
                     <td>
                       <div className="row-actions" style={{ justifyContent: "flex-end" }}>
+                        <button type="button" className="ra-btn tip" data-tip="Modifier" onClick={() => { ctx.setEditOnOpen(true); ctx.openDoc(d); }}>
+                          <Icon name="edit" size={16} />
+                        </button>
                         <button type="button" className="ra-btn tip" data-tip="Consulter" onClick={() => ctx.openDoc(d)}>
                           <Icon name="eye" size={16} />
                         </button>

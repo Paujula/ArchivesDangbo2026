@@ -306,7 +306,7 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
         await api.archives.delete(d.id);
         setDocs(docs => docs.filter(x => x.id !== d.id));
         setTotal(t => t - 1);
-        ctx.toast({ title: "Document supprimé avec succès", body: d.title + " supprimé définitivement." });
+        ctx.toast({ title: "Document déplacé", body: d.title + " a été déplacé dans la corbeille." });
       } catch (err) {
         ctx.toast({ tone: "danger", title: "Erreur", body: err instanceof ApiError ? err.message : "Impossible de supprimer." });
       }

@@ -54,6 +54,25 @@ export default function RapportScreen({ ctx }: { ctx: AppCtx }) {
     }
   };
 
+  const downloadDocument = async (d: RapportDocument) => {
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/archives/${d.id}/download`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = d.original_name || d.title || d.id;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de télécharger le fichier." });
+    }
+  };
+
   return (
     <div className="content-pad" style={{ maxWidth: 1400 }}>
       <div className="page-head">
@@ -81,8 +100,8 @@ export default function RapportScreen({ ctx }: { ctx: AppCtx }) {
       </div>
 
       {ctx.rapportSearched && (
-        <div className="card card-pad">
-          <div className="row between center" style={{ marginBottom: 16 }}>
+        <div className="card" style={{ overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px 0" }}>
             <strong style={{ fontSize: 14 }}>
               {ctx.rapportTotal === 0
                 ? "Aucun document trouvé pour cette date."
@@ -92,13 +111,13 @@ export default function RapportScreen({ ctx }: { ctx: AppCtx }) {
           </div>
 
           {ctx.rapportDocs.length > 0 && (
-            <div className="table-wrap">
-              <table className="tbl" style={{ fontSize: 13 }}>
+            <div className="tbl-wrap" style={{ overflowX: "auto", marginTop: 16 }}>
+              <table className="tbl" style={{ fontSize: 13, minWidth: 1100 }}>
                 <thead>
                   <tr>
                     <th style={{ verticalAlign: "top" }}>Cote</th>
                     <th style={{ verticalAlign: "top" }}>Titre</th>
-                    <th style={{ verticalAlign: "top" }}>Analyse</th>
+                    <th style={{ verticalAlign: "top" }}>Mot clé</th>
                     <th style={{ verticalAlign: "top" }}>Série</th>
                     <th style={{ verticalAlign: "top" }}>Sous-série</th>
                     <th style={{ verticalAlign: "top" }}>Service</th>
@@ -134,6 +153,9 @@ export default function RapportScreen({ ctx }: { ctx: AppCtx }) {
                               </button>
                               <button className="ra-btn tip" data-tip="Imprimer" onClick={() => printDocument(d)}>
                                 <Icon name="printer" size={16} />
+                              </button>
+                              <button className="ra-btn tip" data-tip="Télécharger" onClick={() => downloadDocument(d)}>
+                                <Icon name="download" size={16} />
                               </button>
                             </>
                           )}

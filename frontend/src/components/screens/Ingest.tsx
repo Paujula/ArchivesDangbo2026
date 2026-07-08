@@ -153,6 +153,7 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
         pages:       form.pages ? parseInt(form.pages) : undefined,
         restricted:  form.restricted,
         description: form.description || undefined,
+        keywords:    form.description ? form.description.split(/[,;]+/).map(s => s.trim()).filter(Boolean) : undefined,
         temp_id:     file?.tempId,
         original_name: file?.originalName,
         draft:       asDraft,

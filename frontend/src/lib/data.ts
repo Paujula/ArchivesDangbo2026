@@ -181,5 +181,5 @@ export const DEMO_ACCOUNTS = [
   { email: "donou@gmail.com",              password: "Dangbo2026", role: "admin" as const,       uid: "u1" },
   { email: "raissa.gonzallo@dangbo.bj",    password: "Dangbo2026", role: "chef" as const,        uid: "u2" },
   { email: "kponou.chancelle@dangbo.bj",   password: "Dangbo2026", role: "saisisseur" as const,  uid: "u4" },
-  { email: "boko.louis@dangbo.bj",         password: "Dangbo2027", role: "consultant" as const,  uid: "u3" },
+  { email: "boko.louis@dangbo.bj",         password: "Dangbo2026", role: "consultant" as const,  uid: "u3" },
 ];

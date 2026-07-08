@@ -158,12 +158,26 @@ export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
                               )}
                               {changes.length > 0 && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                                  {changes.map((d, i) => (
-                                    <div key={i} style={{ fontSize: 11.5, overflowWrap: "break-word" }}>
-                                      <span className="muted" style={{ minWidth: 80, display: "inline-block" }}>{d.label}:</span>
-                                      <span style={{ fontWeight: 600 }}>{d.value}</span>
-                                    </div>
-                                  ))}
+                                  {changes.map((d, i) => {
+                                    const arrowIdx = d.value.indexOf("→");
+                                    if (arrowIdx !== -1) {
+                                      const oldVal = d.value.slice(0, arrowIdx).trim();
+                                      const newVal = d.value.slice(arrowIdx + 1).trim();
+                                      return (
+                                        <div key={i} style={{ fontSize: 11.5, overflowWrap: "break-word" }}>
+                                          <span className="muted" style={{ minWidth: 80, display: "inline-block" }}>{d.label}:</span>
+                                          <span style={{ textDecoration: "line-through", opacity: 0.6, marginRight: 6 }}>{oldVal}</span>
+                                          <span style={{ fontWeight: 600 }}>{newVal}</span>
+                                        </div>
+                                      );
+                                    }
+                                    return (
+                                      <div key={i} style={{ fontSize: 11.5, overflowWrap: "break-word" }}>
+                                        <span className="muted" style={{ minWidth: 80, display: "inline-block" }}>{d.label}:</span>
+                                        <span style={{ fontWeight: 600 }}>{d.value}</span>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>

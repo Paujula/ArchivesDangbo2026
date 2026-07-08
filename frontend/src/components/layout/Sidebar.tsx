@@ -1,7 +1,6 @@
 "use client";
 
 import Icon from "@/components/ui/Icon";
-import { ROLES } from "@/lib/data";
 import type { Route, Role } from "@/lib/types";
 
 const NAV = [
@@ -28,6 +27,7 @@ const NAV = [
       { key: "historique" as Route, icon: "history",  label: "Historique d'activité",     roles: ["admin"] },
       { key: "settings"  as Route, icon: "settings",  label: "Paramètres et Nomenclature",  roles: ["chef", "admin"] },
       { key: "rapport" as Route, icon: "chart",       label: "Rapport Journalière",         roles: ["chef", "admin"] },
+      { key: "corbeille" as Route, icon: "trash",     label: "Corbeille",              roles: ["chef", "admin"] },
     ],
   },
 ];
@@ -74,15 +74,8 @@ export default function Sidebar({ route, role, collapsed, onNavigate, onToggleCo
             </div>
           );
         })}
+        <div className="motto" style={{ marginTop: 'auto' }}>Fraternité · Justice · Travail</div>
       </nav>
-
-      <div className="sb-foot">
-        <button className="sb-item" onClick={onToggleCollapse} title="Réduire le menu">
-          <Icon name="panel" size={18} />
-          <span className="sb-item-label">Réduire le menu</span>
-        </button>
-        <div className="motto" style={{ marginTop: 8 }}>Fraternité · Justice · Travail</div>
-      </div>
     </aside>
   );
 }

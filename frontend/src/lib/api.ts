@@ -117,7 +117,7 @@ export const api = {
 
     /** Demande de réinitialisation par email */
     forgotPassword: (email: string) =>
-      request<{ message: string; reset_token?: string; reset_email?: string }>(
+      request<{ message: string }>(
         'POST', '/auth/forgot-password', { email }
       ),
 
@@ -180,8 +180,8 @@ export const api = {
     createService: (name: string, direction_id: string) =>
       request<{ service: ApiService; message: string }>('POST', '/settings/services', { name, direction_id }),
 
-    updateService: (id: string, name: string) =>
-      request<{ service: { id: string; name: string }; message: string }>('PUT', `/settings/services/${id}`, { name }),
+    updateService: (id: string, name: string, direction_id?: string) =>
+      request<{ service: ApiService; message: string }>('PUT', `/settings/services/${id}`, { name, ...(direction_id ? { direction_id } : {}) }),
 
     deleteService: (id: string) =>
       request<{ message: string }>('DELETE', `/settings/services/${id}`),
@@ -290,7 +290,7 @@ export const api = {
 
     /** Met à jour une archive */
     update: (id: string, data: {
-      title?: string; cote?: string; sub?: string; service?: string;
+      title?: string; cote?: string; service?: string;
       status?: string; format?: string; date?: string;
       pages?: number; restricted?: boolean;
       keywords?: string[]; description?: string;
@@ -298,9 +298,51 @@ export const api = {
       temp_id?: string; original_name?: string; draft?: boolean;
     }) => request<{ archive: import('./types').Doc; message: string }>('PUT', `/archives/${id}`, data),
 
-    /** Supprime une archive (chef) */
+    /** Supprime une archive (chef) — soft-delete, passe en corbeille */
     delete: (id: string) =>
       request<{ message: string }>('DELETE', `/archives/${id}`),
+
+    /** Liste des documents dans la corbeille (soft-deleted) */
+    deleted: (params?: { page?: number; per_page?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.page) qs.set('page', String(params.page));
+      if (params?.per_page) qs.set('per_page', String(params.per_page));
+      const suffix = qs.toString() ? '?' + qs.toString() : '';
+      return request<{
+        documents: {
+          id: string;
+          cote: string;
+          titre: string;
+          analyse: string;
+          emplacement: string;
+          original_name: string;
+          format: string;
+          pages: number;
+          statut: string;
+          restricted: boolean;
+          date_enregistrement: string;
+          fichier: string | null;
+          deleted_at: string;
+          service: string | null;
+          direction: string | null;
+          serie: string | null;
+          sous_serie: string | null;
+          deleter: { id: string; name: string; prenom: string } | null;
+        }[];
+        total: number;
+        per_page: number;
+        current_page: number;
+        last_page: number;
+      }>('GET', `/archives/deleted${suffix}`);
+    },
+
+    /** Restaure un document depuis la corbeille */
+    restore: (id: string) =>
+      request<{ message: string }>('POST', `/archives/${id}/restore`),
+
+    /** Suppression définitive (force delete) de documents depuis la corbeille */
+    batchForceDelete: (ids: string[]) =>
+      request<{ message: string }>('POST', '/archives/batch-force-delete', { ids }),
 
     /** Enregistre une vue (incrémente compteur + audit) */
     recordView: (id: string) =>
@@ -339,6 +381,43 @@ export const api = {
     /** Supprime définitivement un utilisateur */
     deleteUser: (id: string) =>
       request<{ message: string }>('DELETE', `/users/${id}/force`),
+
+    /** Liste des utilisateurs dans la corbeille (soft-deleted) */
+    deleted: (params?: { page?: number; per_page?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.page) qs.set('page', String(params.page));
+      if (params?.per_page) qs.set('per_page', String(params.per_page));
+      const suffix = qs.toString() ? '?' + qs.toString() : '';
+      return request<{
+        users: {
+          id: string;
+          name: string;
+          prenom: string;
+          email: string;
+          telephone: string;
+          adresse: string;
+          service: string;
+          direction: string;
+          statut_matrimoniale: string;
+          role: string;
+          carte: string;
+          deleted_at: string;
+          deleter: { id: string; name: string; prenom: string } | null;
+        }[];
+        total: number;
+        per_page: number;
+        current_page: number;
+        last_page: number;
+      }>('GET', `/users/deleted${suffix}`);
+    },
+
+    /** Restaure un utilisateur depuis la corbeille */
+    restoreUser: (id: string) =>
+      request<{ message: string }>('POST', `/users/${id}/restore`),
+
+    /** Suppression définitive de plusieurs utilisateurs */
+    batchForceDelete: (ids: string[]) =>
+      request<{ message: string }>('POST', '/users/batch-force-delete', { ids }),
 
     /** Réactive un utilisateur */
     activate: (id: string) =>

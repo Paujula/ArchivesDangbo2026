@@ -120,7 +120,7 @@ export interface DashboardStats {
   direction_distribution: { label: string; count: number }[];
 }
 
-export type Route = "dashboard" | "search" | "ingest" | "viewer" | "users" | "settings" | "documents" | "historique" | "demandes" | "my-documents" | "rapport";
+export type Route = "dashboard" | "search" | "ingest" | "viewer" | "users" | "settings" | "documents" | "historique" | "demandes" | "my-documents" | "rapport" | "corbeille";
 
 export interface RapportDocument {
   id: string;
@@ -206,6 +206,10 @@ export interface AppCtx {
     removeEmplacement: (n: string) => void;
   };
   refreshActiveDoc: () => Promise<void>;
+  editOnOpen: boolean;
+  setEditOnOpen: (v: boolean) => void;
+  corbeilleView: boolean;
+  setCorbeilleView: (v: boolean) => void;
   rapportDocs: RapportDocument[];
   rapportTotal: number;
   rapportDate: string;

@@ -79,9 +79,7 @@ function DemandesChef({ ctx }: { ctx: AppCtx }) {
   useEffect(() => { load(1, filter); }, [load, filter]);
 
   const handleFilter = (key: string | null) => {
-    const next = filter === key ? null : key;
-    setFilter(next);
-    load(1, next);
+    setFilter(filter === key ? null : key);
   };
 
   const handleApprove = async (id: number) => {
@@ -155,11 +153,6 @@ function DemandesChef({ ctx }: { ctx: AppCtx }) {
             <>Demandes {CARD_CONFIG.find(c => c.key === filter)?.label.toLowerCase()} · {total} résultat{total > 1 ? "s" : ""}</>
           ) : (
             <>Toutes les demandes · {total} demande{total > 1 ? "s" : ""}</>
-          )}
-          {filter && (
-            <button className="btn btn-sm btn-ghost" style={{ marginLeft: 10 }} onClick={() => handleFilter(filter)}>
-              <Icon name="x" size={12} /> Réinitialiser
-            </button>
           )}
         </div>
         {loading ? (
@@ -323,9 +316,7 @@ export default function DemandesScreen({ ctx }: { ctx: AppCtx }) {
   useEffect(() => { load(1, filter); }, [load, filter]);
 
   const handleFilter = (key: string | null) => {
-    const next = filter === key ? null : key;
-    setFilter(next);
-    load(1, next);
+    setFilter(filter === key ? null : key);
   };
 
   const handleDownload = async (d: { id: string; title: string; cote: string }) => {
@@ -388,11 +379,6 @@ export default function DemandesScreen({ ctx }: { ctx: AppCtx }) {
             <>Demandes {CARD_CONFIG.find(c => c.key === filter)?.label.toLowerCase()} · {total} résultat{total > 1 ? "s" : ""}</>
           ) : (
             <>Toutes mes demandes · {total} demande{total > 1 ? "s" : ""}</>
-          )}
-          {filter && (
-            <button className="btn btn-sm btn-ghost" style={{ marginLeft: 10 }} onClick={() => handleFilter(filter)}>
-              <Icon name="x" size={12} /> Réinitialiser
-            </button>
           )}
         </div>
         {loading ? (

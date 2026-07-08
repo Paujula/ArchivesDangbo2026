@@ -7,7 +7,7 @@ import { formatRelative } from "@/lib/utils";
 
 // ── Conversion ApiUser → User (type frontend) ────────────────────────────────
 
-function apiUserToUser(u: ApiUser): User {
+export function apiUserToUser(u: ApiUser): User {
   return {
     id:       u.id,
     nom:      u.nom,
@@ -46,8 +46,8 @@ function firstRoute(role: Role): Route {
 }
 
 const ALLOWED_ROUTES: Record<Role, Route[]> = {
-  admin:      ['dashboard', 'search', 'ingest', 'viewer', 'users', 'settings', 'historique', 'rapport'],
-  chef:       ['dashboard', 'search', 'ingest', 'viewer', 'users', 'settings', 'documents', 'demandes', 'rapport'],
+  admin:      ['dashboard', 'search', 'ingest', 'viewer', 'users', 'settings', 'historique', 'corbeille', 'rapport'],
+  chef:       ['dashboard', 'search', 'ingest', 'viewer', 'users', 'settings', 'documents', 'demandes', 'corbeille', 'rapport'],
   saisisseur: ['dashboard', 'search', 'ingest', 'viewer', 'my-documents', 'demandes'],
   consultant: ['dashboard', 'search', 'viewer', 'demandes'],
 };
@@ -93,6 +93,10 @@ interface AppState {
   setRoleMenuOpen:   (o: boolean) => void;
   setChangePwOpen:   (o: boolean) => void;
 
+  editOnOpen:    boolean;
+  setEditOnOpen: (v: boolean) => void;
+  corbeilleView: boolean;
+  setCorbeilleView: (v: boolean) => void;
   rapportDocs:   RapportDocument[];
   rapportTotal:  number;
   rapportDate:   string;
@@ -117,6 +121,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activeDoc,   setActiveDoc]   = useState<Doc | null>(null);
   const [viewerTab,   setViewerTab]   = useState('meta');
   const [lastList,    setLastList]    = useState<Route>('search');
+  const [editOnOpen,      setEditOnOpen]      = useState(false);
+  const [corbeilleView,   setCorbeilleView]    = useState(false);
   const [searchQ,       setSearchQ]       = useState('');
   const [searchDocs,    setSearchDocs]     = useState<Doc[]>([]);
   const [searchTotal,   setSearchTotal]    = useState(0);
@@ -338,6 +344,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [role, user]);
 
   const openDoc = useCallback((d: Doc, tab = 'meta') => {
+    setCorbeilleView(false);
     setActiveDoc(d);
     setViewerTab(tab);
     setLastList(route === 'viewer' ? lastList : route);
@@ -623,6 +630,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     role, user, navigate, openDoc, denyAccess, canAccess, canEdit, toast,
     activeDoc, viewerTab, lastList: lastList as Route,
     searchQ, searchDocs, searchTotal, searchSort, hasSearched, setSearch, clearSearch,
+    editOnOpen, setEditOnOpen,
+    corbeilleView, setCorbeilleView,
     rapportDocs, rapportTotal, rapportDate, rapportSearched, setRapportState, clearRapportState,
     services, serviceDirections, directions, emplacements, series, sousSeries, cfg,
     refreshActiveDoc,
@@ -635,6 +644,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     userMenuOpen, roleMenuOpen, changePwOpen,
     login, logout, setRole, navigate, openDoc, denyAccess, canAccess, canEdit, toast,
     setCollapsed, setUserMenuOpen, setRoleMenuOpen, setChangePwOpen,
+    editOnOpen, setEditOnOpen,
+    corbeilleView, setCorbeilleView,
     rapportDocs, rapportTotal, rapportDate, rapportSearched, setRapportState, clearRapportState,
     cfg, user, ctx,
   };

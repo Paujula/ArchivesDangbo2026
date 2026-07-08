@@ -44,6 +44,15 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
   const blobUrlRef = useRef<string | null>(null);
 
   const pages = Math.min(d.pages || 1, 999);
+  const [returnAfterSave, setReturnAfterSave] = useState(false);
+
+  useEffect(() => {
+    if (ctx.editOnOpen) {
+      setEditOpen(true);
+      setReturnAfterSave(true);
+      ctx.setEditOnOpen(false);
+    }
+  }, []);
 
   // ── Édition ──────────────────────────────────────────────────────────────
   const [confirm, setConfirm] = useState<{ msg: string; onConfirm: () => void } | null>(null);
@@ -107,11 +116,13 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
         pages: editForm.pages ? parseInt(editForm.pages) : undefined,
         restricted: editForm.restricted,
         description: editForm.description || undefined,
+        keywords: editForm.description ? editForm.description.split(/[,;]+/).map(s => s.trim()).filter(Boolean) : undefined,
         temp_id: editFile?.tempId,
         original_name: editFile?.originalName,
       });
       ctx.toast({ title: "Document modifié", body: editForm.title + " a été mis à jour." });
       setEditOpen(false);
+      if (returnAfterSave) ctx.navigate(ctx.lastList);
       setEditFile(null);
       await ctx.refreshActiveDoc();
     } catch (err) {
@@ -266,12 +277,12 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
               onClick={() => ctx.toast({ tone: 'danger', title: 'Action interdite', body: 'Le téléchargement n\'est pas autorisé en mode consultation.' })}>
               <Icon name="lock" size={14} />Téléchargement protégé
             </button>
-            {canEdit && (
+            {canEdit && !ctx.corbeilleView && (
               <button className="btn btn-soft btn-sm" onClick={() => setEditOpen(true)}>
                 <Icon name="edit" size={15} />Modifier
               </button>
             )}
-            {(ctx.role === "chef" || ctx.role === "admin") && (
+            {!ctx.corbeilleView && (ctx.role === "chef" || ctx.role === "admin") && (
               <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger-deep)", borderColor: "var(--danger-soft)" }}
                 onClick={() => setConfirm({ msg: `Voulez-vous vraiment supprimer le document "${d.title}" ?`, onConfirm: async () => {
                   try {
@@ -631,18 +642,11 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
               </select>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-              <div className="field">
-                <label>Date du document <span className="req">*</span></label>
-                <input type="date" className={`input ${editErrors.date ? "error" : ""}`}
-                  value={editForm.date} onChange={e => setEF("date", e.target.value)} />
-                {editErrors.date && <div className="err-msg"><Icon name="alert" size={13} />{editErrors.date}</div>}
-              </div>
-              <div className="field">
-                <label>Nombre de pages</label>
-                <input type="number" className="input" min={0} max={9999} placeholder="ex : 214"
-                  value={editForm.pages} onChange={e => setEF("pages", e.target.value)} />
-              </div>
+            <div className="field" style={{ marginBottom: 14 }}>
+              <label>Date du document <span className="req">*</span></label>
+              <input type="date" className={`input ${editErrors.date ? "error" : ""}`}
+                value={editForm.date} onChange={e => setEF("date", e.target.value)} />
+              {editErrors.date && <div className="err-msg"><Icon name="alert" size={13} />{editErrors.date}</div>}
             </div>
 
             <div className="field" style={{ marginBottom: 14 }}>
@@ -705,7 +709,7 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
               <button className="btn btn-primary" onClick={saveEdit} disabled={editSaving}>
                 {editSaving
                   ? <><span className="sk" style={{ width: 14, height: 14, borderRadius: "50%" }} />Enregistrement…</>
-                  : <><Icon name="check" size={16} />Enregistrer</>}
+                  : <><Icon name="check" size={16} />Modifier</>}
               </button>
             </div>
           </div>

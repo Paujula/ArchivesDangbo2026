@@ -1,6 +1,6 @@
 "use client";
 
-import { BADGE_DOT, CONSERVATION } from "@/lib/data";
+import { CONSERVATION } from "@/lib/data";
 
 interface BadgeProps {
   tone?: string;
