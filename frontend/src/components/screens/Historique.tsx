@@ -93,7 +93,6 @@ export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
     <div className="content-pad" style={{ maxWidth: 1340 }}>
       <div className="page-head">
         <div className="ph-left">
-          <div className="eyebrow" style={{ marginBottom: 7 }}>Audit & traçabilité · {total} entrées</div>
           <h1>Historique d&apos;activité</h1>
           <div className="ph-sub">Toutes les actions effectuées sur le système sont enregistrées et horodatées.</div>
         </div>

@@ -43,6 +43,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
+    ...(method === 'GET' ? { cache: 'no-store' } : {}),
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
