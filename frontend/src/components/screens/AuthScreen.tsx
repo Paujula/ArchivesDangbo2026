@@ -264,10 +264,7 @@ export default function AuthScreen() {
                   );
                 })}
               </div>
-              <div className="row gap-2 center muted-3" style={{ fontSize: 11, marginTop: 12, justifyContent: 'center' }}>
-                <Icon name="key" size={13} />
-                <span>Mot de passe de démo : <span className="mono" style={{ color: 'var(--text-2)' }}>Dangbo2026</span></span>
-              </div>
+
             </div>
           )}
 

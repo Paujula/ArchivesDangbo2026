@@ -8,7 +8,6 @@ import Switch from "@/components/ui/Switch";
 import Confirm from "@/components/ui/Confirm";
 import { ROLES } from "@/lib/data";
 import { api, ApiError } from "@/lib/api";
-import { formatRelative } from "@/lib/utils";
 import { apiUserToUser } from "@/context/AppContext";
 import type { AppCtx, User } from "@/lib/types";
 
@@ -50,6 +49,7 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
   const [errors,    setErrors]    = useState<Record<string, string>>({});
   const [filter,    setFilter]    = useState("tous");
   const [cardViewer, setCardViewer] = useState<User | null>(null);
+  const [search,    setSearch]    = useState("");
 
 
   const isAdmin = ctx.role === "chef" || ctx.role === "admin";
@@ -343,7 +343,18 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
 
   // ── Filtrage ──────────────────────────────────────────────────────────────
 
-  const shown = allUsers.filter(u => (filter === "tous" || u.role === filter) && (ctx.role !== "chef" || u.role !== "admin"));
+  const shown = allUsers.filter(u => {
+    if (ctx.role === "chef" && u.role === "admin") return false;
+    if (filter !== "tous" && u.role !== filter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const nom = (u.nom || "").toLowerCase();
+      const prenom = (u.prenom || "").toLowerCase();
+      const email = (u.email || "").toLowerCase();
+      if (!nom.includes(q) && !prenom.includes(q) && !email.includes(q)) return false;
+    }
+    return true;
+  });
 
   // ── Rendu ─────────────────────────────────────────────────────────────────
 
@@ -358,6 +369,22 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
         <button className="btn btn-primary" onClick={openNew}>
           <Icon name="plus" size={16} />Ajouter un agent
         </button>
+      </div>
+
+      {/* Barre de recherche */}
+      <div className="card" style={{ padding: "10px 12px", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Icon name="search" size={19} className="muted-3" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher par nom, prénom ou email…"
+            style={{ flex: 1, border: "none", outline: "none", background: "none", fontSize: 15 }}
+          />
+          {search && (
+            <button className="ra-btn" onClick={() => setSearch("")}><Icon name="x" size={16} /></button>
+          )}
+        </div>
       </div>
 
       <div className="row between center wrap gap-3" style={{ marginBottom: 14 }}>
@@ -398,7 +425,15 @@ export default function Users({ ctx }: { ctx: AppCtx }) {
                 </tr>
               </thead>
               <tbody>
-                {shown.map(u => {
+                {shown.length === 0 ? (
+                  <tr>
+                    <td colSpan={8}>
+                      <div style={{ padding: "40px 0", textAlign: "center" }}>
+                        <div className="muted" style={{ fontSize: 14 }}>Aucun utilisateur trouvé</div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : shown.map(u => {
                   const granted = directionNames.filter(t => u.rights[t]).length;
                   return (
                     <tr key={u.id} style={{ cursor: "pointer" }} onClick={() => openEdit(u)}>

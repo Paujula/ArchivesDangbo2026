@@ -216,4 +216,8 @@ export interface AppCtx {
   rapportSearched: boolean;
   setRapportState: (date: string, docs: RapportDocument[], total: number) => void;
   clearRapportState: () => void;
+  demandesFilter: string | null;
+  setDemandesFilter: (f: string | null) => void;
+  demandesFilterChef: string | null;
+  setDemandesFilterChef: (f: string | null) => void;
 }

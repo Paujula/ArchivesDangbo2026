@@ -377,7 +377,6 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
           <div className="row gap-2 center" style={{ marginLeft: "auto" }}>
             <span className="muted-3 mono" style={{ fontSize: 11 }}>TRIER</span>
             <select className="select btn-sm" style={{ height: 32, width: "auto", paddingRight: 26 }} value={sort} onChange={e => setSort(e.target.value)}>
-              <option value="">Date ↓</option>
               <option value="recent">Consultés récemment</option>
               <option value="ancien">Plus anciens</option>
               <option value="vues">Plus consultés</option>

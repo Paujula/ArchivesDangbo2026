@@ -65,7 +65,7 @@ export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState<"" | "document" | "utilisateur" | "settings" | "authentification">("");
 
   const load = useCallback(async (p: number) => {
     setLoading(true);
@@ -150,7 +150,7 @@ export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
                         const parsed = parseDetails(e.details);
                         if (e.type === "utilisateur") {
                           const userField = parsed.find(d => d.label === "Utilisateur");
-                          const changes = parsed.filter(d => d.label && d.label !== "Utilisateur");
+                          const changes = parsed.filter(d => d.label && d.label !== "Utilisateur" && d.label !== "Carte");
                           return (
                             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                               {userField && (

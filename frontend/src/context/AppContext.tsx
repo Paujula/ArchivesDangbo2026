@@ -103,6 +103,10 @@ interface AppState {
   rapportSearched: boolean;
   setRapportState: (date: string, docs: RapportDocument[], total: number) => void;
   clearRapportState: () => void;
+  demandesFilter: string | null;
+  setDemandesFilter: (f: string | null) => void;
+  demandesFilterChef: string | null;
+  setDemandesFilterChef: (f: string | null) => void;
   cfg:       AppCtx['cfg'];
   user:      User;
   ctx:       AppCtx;
@@ -132,6 +136,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [rapportTotal,  setRapportTotal]    = useState(0);
   const [rapportDate,   setRapportDate]     = useState('');
   const [rapportSearched, setRapportSearched] = useState(false);
+  const [demandesFilter, setDemandesFilter] = useState<string | null>(null);
+  const [demandesFilterChef, setDemandesFilterChef] = useState<string | null>(null);
   const [toasts,      setToasts]      = useState<Toast[]>([]);
 
   const [collapsed,   setCollapsed]   = useState(false);
@@ -270,6 +276,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUser(u);
     setRoleState(u.role);
     try { sessionStorage.removeItem('route'); } catch { /* ignorer */ }
+    setDemandesFilter(null);
+    setDemandesFilterChef(null);
     setAuthed(true);
     setRoute(firstRoute(u.role));
     clearSearch();
@@ -281,6 +289,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try { await api.auth.logout(); } catch { /* ignorer les erreurs réseau */ }
     clearToken();
     try { sessionStorage.removeItem('route'); } catch { /* ignorer */ }
+    setDemandesFilter(null);
+    setDemandesFilterChef(null);
     setUserMenuOpen(false);
     setAuthed(false);
     setUser(EMPTY_USER);
@@ -297,10 +307,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setEmplacements([]);
     setSeries([]);
     setSousSeries([]);
-      serviceIdsRef.current = new Map();
-      serviceDirectionRef.current = new Map();
-      sousSerieIdsRef.current = new Map();
-    serieIdsRef.current     = new Map();
+    serviceIdsRef.current = new Map();
+    serviceDirectionRef.current = new Map();
+    sousSerieIdsRef.current = new Map();
+    serieIdsRef.current = new Map();
     directionIdsRef.current = new Map();
   }, []);
 
@@ -633,6 +643,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     editOnOpen, setEditOnOpen,
     corbeilleView, setCorbeilleView,
     rapportDocs, rapportTotal, rapportDate, rapportSearched, setRapportState, clearRapportState,
+    demandesFilter, setDemandesFilter, demandesFilterChef, setDemandesFilterChef,
     services, serviceDirections, directions, emplacements, series, sousSeries, cfg,
     refreshActiveDoc,
   };
@@ -647,6 +658,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     editOnOpen, setEditOnOpen,
     corbeilleView, setCorbeilleView,
     rapportDocs, rapportTotal, rapportDate, rapportSearched, setRapportState, clearRapportState,
+    demandesFilter, setDemandesFilter, demandesFilterChef, setDemandesFilterChef,
     cfg, user, ctx,
   };
 

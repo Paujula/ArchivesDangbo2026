@@ -29,7 +29,8 @@ function MetaRow({ label, children }: { label: string; children: React.ReactNode
 }
 
 export default function Viewer({ ctx }: { ctx: AppCtx }) {
-  const d = ctx.activeDoc as Doc;
+  const d = ctx.activeDoc;
+  if (!d) return <div style={{ padding: "40px", textAlign: "center" }} className="muted">Aucun document sélectionné.</div>;
 
   const [tab,       setTab]       = useState(ctx.viewerTab || "meta");
   const [zoom,      setZoom]      = useState(1);
@@ -71,9 +72,9 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
   const [editServices, setEditServices] = useState<ApiService[]>([]);
 
   useEffect(() => {
-    api.settings.listDirections().then(r => setEditDirections(r.directions)).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les directions." }));
-    api.settings.listServices().then(r => setEditServices(r.services)).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les services." }));
-  }, [ctx]);
+    api.settings.listDirections().then(r => setEditDirections(r.directions)).catch(() => {});
+    api.settings.listServices().then(r => setEditServices(r.services)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (editOpen) {
@@ -277,12 +278,12 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
               onClick={() => ctx.toast({ tone: 'danger', title: 'Action interdite', body: 'Le téléchargement n\'est pas autorisé en mode consultation.' })}>
               <Icon name="lock" size={14} />Téléchargement protégé
             </button>
-            {canEdit && !ctx.corbeilleView && (
+            {canEdit && !ctx.corbeilleView && ctx.lastList !== "search" && ctx.lastList !== "documents" && ctx.lastList !== "demandes" && (
               <button className="btn btn-soft btn-sm" onClick={() => setEditOpen(true)}>
                 <Icon name="edit" size={15} />Modifier
               </button>
             )}
-            {!ctx.corbeilleView && (ctx.role === "chef" || ctx.role === "admin") && (
+            {!ctx.corbeilleView && (ctx.role === "chef" || ctx.role === "admin") && ctx.lastList !== "search" && ctx.lastList !== "documents" && ctx.lastList !== "demandes" && (
               <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger-deep)", borderColor: "var(--danger-soft)" }}
                 onClick={() => setConfirm({ msg: `Voulez-vous vraiment supprimer le document "${d.title}" ?`, onConfirm: async () => {
                   try {

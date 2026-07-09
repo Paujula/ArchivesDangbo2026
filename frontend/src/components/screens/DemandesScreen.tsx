@@ -41,7 +41,8 @@ function DemandesChef({ ctx }: { ctx: AppCtx }) {
   const [viewingDoc, setViewingDoc] = useState<number | null>(null);
   const [stats, setStats] = useState<{ en_attente: number; approuve: number; refuse: number } | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onConfirm: () => void } | null>(null);
-  const [filter, setFilter] = useState<string | null>(null);
+  const filter = ctx.demandesFilterChef;
+  const setFilter = ctx.setDemandesFilterChef;
 
   useEffect(() => {
     api.demandes.stats().then(setStats).catch(() => {/* silencieux : le chargement des stats n'est pas bloquant */});
@@ -278,23 +279,18 @@ function DemandesChef({ ctx }: { ctx: AppCtx }) {
   );
 }
 
-export default function DemandesScreen({ ctx }: { ctx: AppCtx }) {
-  const role = ctx.role;
-
-  if (role === "admin" || role === "chef") {
-    return <DemandesChef ctx={ctx} />;
-  }
-
+function DemandesUser({ ctx }: { ctx: AppCtx }) {
   const [entries, setEntries] = useState<DemandeEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<{ en_attente: number; approuve: number; refuse: number } | null>(null);
-  const [filter, setFilter] = useState<string | null>(null);
+  const filter = ctx.demandesFilter;
+  const setFilter = ctx.setDemandesFilter;
 
   useEffect(() => {
-    api.demandes.stats().then(setStats).catch(() => {/* silencieux : le chargement des stats n'est pas bloquant */});
+    api.demandes.stats().then(setStats).catch(() => {});
   }, []);
 
   const load = useCallback(async (p: number, statusFilter?: string | null) => {
@@ -462,4 +458,11 @@ export default function DemandesScreen({ ctx }: { ctx: AppCtx }) {
       </div>
     </div>
   );
+}
+
+export default function DemandesScreen({ ctx }: { ctx: AppCtx }) {
+  if (ctx.role === "admin" || ctx.role === "chef") {
+    return <DemandesChef ctx={ctx} />;
+  }
+  return <DemandesUser ctx={ctx} />;
 }
