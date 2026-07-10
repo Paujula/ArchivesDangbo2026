@@ -56,7 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/archives/{document}/restore', [ArchivesController::class, 'restore'])->middleware('role:chef,admin')->withTrashed();
     Route::post('/archives/{document}/view', [ArchivesController::class, 'recordView']);
     Route::get('/archives/{document}/related', [ArchivesController::class, 'related']);
-    Route::get('/archives/{document}/download', [ArchivesController::class, 'download'])->withTrashed();
+    Route::get('/archives/{document}/download', [ArchivesController::class, 'download']);
 
     // Utilisateurs — chef/admin uniquement
     Route::middleware('role:chef,admin')->group(function () {

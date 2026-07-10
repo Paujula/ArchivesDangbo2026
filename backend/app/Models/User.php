@@ -14,6 +14,7 @@ use Laravel\Sanctum\HasApiTokens;
 #[Fillable([
     'name', 'prenom', 'email', 'password', 'telephone', 'adresse',
     'service', 'direction', 'statut_matrimoniale', 'role', 'carte',
+    'color', 'initials', 'rights',
     'deleted_by',
 ])]
 #[Hidden(['password', 'remember_token'])]

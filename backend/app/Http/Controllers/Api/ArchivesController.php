@@ -354,7 +354,7 @@ class ArchivesController extends Controller
     {
         $perPage = min((int) ($request->get('per_page', 50)), 100);
 
-        $documents = Document::with(['service', 'direction', 'serieArchive', 'sousSerie'])
+        $documents = Document::with(['service', 'direction', 'serieArchive', 'sousSerie', 'deleter'])
             ->onlyTrashed()
             ->orderBy('deleted_at', 'desc')
             ->paginate($perPage);
@@ -436,7 +436,8 @@ class ArchivesController extends Controller
 
     public function related(Document $document): JsonResponse
     {
-        $related = Document::where('service_id', $document->service_id)
+        $related = Document::with(['service', 'direction', 'serieArchive', 'sousSerie', 'user'])
+            ->where('service_id', $document->service_id)
             ->where('id_document', '!=', $document->id_document)
             ->limit(5)
             ->get();

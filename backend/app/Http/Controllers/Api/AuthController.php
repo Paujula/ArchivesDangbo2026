@@ -10,7 +10,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -79,9 +78,31 @@ class AuthController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
+        $user = User::where('email', $request->email)->first();
+
+        if ($user && !in_array($user->role, ['admin', 'archiviste'])) {
+            $this->logAction(
+                'Tentative de réinitialisation de mot de passe refusée',
+                'authentification',
+                "Email: {$user->email} | Rôle: {$user->role} | Motif: réservé aux administrateurs et chefs archivistes",
+                documentId: null,
+                requestOrUserId: $request
+            );
+            return response()->json(['message' => 'Seuls les administrateurs et chefs archivistes peuvent réinitialiser leur mot de passe.'], 403);
+        }
+
         $status = Password::sendResetLink($request->only('email'));
 
         if ($status === Password::RESET_LINK_SENT) {
+            if ($user) {
+                $this->logAction(
+                    'Réinitialisation de mot de passe demandée',
+                    'authentification',
+                    "Email: {$user->email} | Rôle: {$user->role}",
+                    documentId: null,
+                    requestOrUserId: (int) $user->id
+                );
+            }
             return response()->json(['message' => __($status)]);
         }
 
