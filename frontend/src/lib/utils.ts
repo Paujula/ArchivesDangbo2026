@@ -22,3 +22,10 @@ export function formatDateShort(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
+
+export function formatDateTime(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) + ' à ' +
+    d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}

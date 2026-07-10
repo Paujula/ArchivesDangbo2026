@@ -60,7 +60,7 @@ export default function Dashboard({ ctx }: { ctx: AppCtx }) {
       .then(setStats)
       .catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les statistiques." }))
       .finally(() => setLoading(false));
-  }, [ctx]);
+  }, []);
 
   const canValidate = ctx.role === "chef" || ctx.role === "admin";
 

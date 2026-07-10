@@ -510,3 +510,47 @@ export const api = {
       request<{ documents: import('./types').RapportDocument[]; total: number; date: string }>('GET', `/rapport/documents?date=${date}`),
   },
 };
+
+// ── Téléchargement partagé ──────────────────────────────────────────────
+
+export async function downloadDocument(
+  docId: string,
+  originalName: string,
+  ctx: { role: string; toast: (opts: { tone?: string; title: string; body: string }) => void },
+  checkDemande = true,
+): Promise<boolean> {
+  if (checkDemande && ctx.role !== "admin" && ctx.role !== "chef") {
+    const check = await api.demandes.check(docId).catch(() => null);
+    if (!check || !check.can_download) {
+      if (check?.statut === "en_attente") {
+        ctx.toast({ tone: "gold", title: "En attente", body: "Votre demande est en cours de validation." });
+      } else if (check?.statut === "refuse") {
+        ctx.toast({ tone: "danger", title: "Accès refusé", body: "Vous ne pouvez pas télécharger ce document." });
+      } else {
+        try {
+          await api.demandes.create(docId);
+          ctx.toast({ tone: "success", title: "Demande envoyée", body: "Votre demande de téléchargement a été transmise au chef archiviste." });
+        } catch { ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible d'envoyer la demande." }); }
+      }
+      return false;
+    }
+  }
+  const token = getToken();
+  try {
+    const r = await fetch(api.archives.saveUrl(docId), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!r.ok) throw new Error();
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = originalName || docId;
+    a.click();
+    URL.revokeObjectURL(url);
+    return true;
+  } catch {
+    ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de télécharger le fichier." });
+    return false;
+  }
+}

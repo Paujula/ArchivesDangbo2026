@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/Icon";
 import Badge from "@/components/ui/Badge";
-import { api } from "@/lib/api";
+import { api, downloadDocument } from "@/lib/api";
 import type { AppCtx, Doc } from "@/lib/types";
 
 export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
@@ -123,40 +123,8 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
                         <button type="button" className="ra-btn tip" data-tip="Consulter" onClick={() => ctx.openDoc(d)}>
                           <Icon name="eye" size={16} />
                         </button>
-                        <button type="button" className="ra-btn tip" data-tip="Télécharger" onClick={async () => {
-                          if (ctx.role !== "admin" && ctx.role !== "chef") {
-                            const check = await api.demandes.check(d.id).catch(() => null);
-                            if (!check || !check.can_download) {
-                              if (check?.statut === "en_attente") {
-                                ctx.toast({ tone: "gold", title: "En attente", body: "Votre demande est en cours de validation." });
-                              } else if (check?.statut === "refuse") {
-                                ctx.toast({ tone: "danger", title: "Accès refusé", body: "Vous ne pouvez pas télécharger ce document." });
-                              } else {
-                                try {
-                                  await api.demandes.create(d.id);
-                                  ctx.toast({ tone: "success", title: "Demande envoyée", body: "Votre demande de téléchargement a été transmise au chef archiviste." });
-                                } catch { ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible d'envoyer la demande." }); }
-                              }
-                              return;
-                            }
-                          }
-                          const token = localStorage.getItem("archive_token");
-                          try {
-                            const r = await fetch(api.archives.saveUrl(d.id), {
-                              headers: token ? { Authorization: `Bearer ${token}` } : {},
-                            });
-                            if (!r.ok) throw new Error();
-                            const blob = await r.blob();
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement("a");
-                            a.href = url;
-                            a.download = d.original_name || d.id;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                          } catch {
-                            ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de télécharger le fichier." });
-                          }
-                        }}>
+                        <button type="button" className="ra-btn tip" data-tip="Télécharger"
+                          onClick={() => downloadDocument(d.id, d.original_name || d.id, ctx)}>
                           <Icon name="download" size={16} />
                         </button>
                       </div>

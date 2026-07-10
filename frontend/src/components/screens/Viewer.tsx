@@ -5,7 +5,7 @@ import Icon from "@/components/ui/Icon";
 import Seal from "@/components/ui/Seal";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import Confirm from "@/components/ui/Confirm";
-import { api, ApiError, ApiService } from "@/lib/api";
+import { api, ApiError, ApiService, downloadDocument } from "@/lib/api";
 import { CONSERVATION, FORMATS } from "@/lib/data";
 import type { AppCtx, Doc } from "@/lib/types";
 
@@ -29,22 +29,18 @@ function MetaRow({ label, children }: { label: string; children: React.ReactNode
 }
 
 export default function Viewer({ ctx }: { ctx: AppCtx }) {
-  const d = ctx.activeDoc;
-  if (!d) return <div style={{ padding: "40px", textAlign: "center" }} className="muted">Aucun document sélectionné.</div>;
-
+  // ── Tous les hooks AVANT le early return (React Rules of Hooks) ─────────
   const [tab,       setTab]       = useState(ctx.viewerTab || "meta");
   const [zoom,      setZoom]      = useState(1);
   const [rot,       setRot]       = useState(0);
   const [page,      setPage]      = useState(1);
   const [related,   setRelated]   = useState<Doc[]>([]);
-  const [viewCount, setViewCount] = useState(d.views);
+  const [viewCount, setViewCount] = useState(ctx.activeDoc?.views ?? 0);
 
-  // Chargement du fichier réel
   const [fileUrl,     setFileUrl]     = useState<string | null>(null);
   const [fileLoading, setFileLoading] = useState(true);
   const blobUrlRef = useRef<string | null>(null);
 
-  const pages = Math.min(d.pages || 1, 999);
   const [returnAfterSave, setReturnAfterSave] = useState(false);
 
   useEffect(() => {
@@ -55,14 +51,16 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
     }
   }, []);
 
-  // ── Édition ──────────────────────────────────────────────────────────────
   const [confirm, setConfirm] = useState<{ msg: string; onConfirm: () => void } | null>(null);
   const [editOpen,  setEditOpen]  = useState(false);
   const [editForm,  setEditForm]  = useState({
-    title: d.title, cote: d.cote, service: d.service, direction: d.direction,
-    serie: d.serie, sous_serie: d.sous_serie, emplacement: d.emplacement ?? '',
-    status: d.status, format: d.format, date: d.date, pages: String(d.pages || ''),
-    restricted: d.restricted, description: d.description ?? '',
+    title: ctx.activeDoc?.title ?? '', cote: ctx.activeDoc?.cote ?? '',
+    service: ctx.activeDoc?.service ?? '', direction: ctx.activeDoc?.direction ?? '',
+    serie: ctx.activeDoc?.serie ?? '', sous_serie: ctx.activeDoc?.sous_serie ?? '',
+    emplacement: ctx.activeDoc?.emplacement ?? '',
+    status: ctx.activeDoc?.status ?? '', format: ctx.activeDoc?.format ?? '',
+    date: ctx.activeDoc?.date ?? '', pages: String(ctx.activeDoc?.pages || ''),
+    restricted: ctx.activeDoc?.restricted ?? false, description: ctx.activeDoc?.description ?? '',
   });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [editSaving, setEditSaving] = useState(false);
@@ -70,6 +68,12 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const [editDirections, setEditDirections] = useState<{ id: string; nom_direction: string }[]>([]);
   const [editServices, setEditServices] = useState<ApiService[]>([]);
+
+  // ── Guard AFTER all hooks ────────────────────────────────────────────────
+  const d = ctx.activeDoc;
+  if (!d) return <div style={{ padding: "40px", textAlign: "center" }} className="muted">Aucun document sélectionné.</div>;
+
+  const pages = Math.min(d.pages || 1, 999);
 
   useEffect(() => {
     api.settings.listDirections().then(r => setEditDirections(r.directions)).catch(() => {});
@@ -79,8 +83,8 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
   useEffect(() => {
     if (editOpen) {
       setEditForm({
-        title: d.title, cote: d.cote, service: d.service, direction: d.direction,
-        serie: d.serie, sous_serie: d.sous_serie, emplacement: d.emplacement ?? '',
+        title: d.title, cote: d.cote ?? '', service: d.service ?? '', direction: d.direction ?? '',
+        serie: d.serie ?? '', sous_serie: d.sous_serie ?? '', emplacement: d.emplacement ?? '',
         status: d.status, format: d.format, date: d.date, pages: String(d.pages || ''),
         restricted: d.restricted, description: d.description ?? '',
       });
@@ -159,19 +163,6 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
 
   // Empêche le double-enregistrement en React StrictMode
   const viewedRef = useRef<string | null>(null);
-
-  // ── Protection clavier global ────────────────────────────────────────────
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'PrintScreen' || (e.ctrlKey && (e.key === 's' || e.key === 'p' || e.key === 'S' || e.key === 'P'))) {
-        e.preventDefault();
-        ctx.toast({ tone: 'danger', title: 'Action interdite', body: 'Cette action n\'est pas autorisée sur ce document.' });
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [ctx]);
 
   // ── Reset quand le document change ────────────────────────────────────────
 
@@ -337,40 +328,7 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
                 <Icon name="refresh" size={15} />
               </button>
               <button className="vw-btn" data-tip="Télécharger"
-                onClick={async () => {
-                  if (ctx.role !== "admin" && ctx.role !== "chef") {
-                    const check = await api.demandes.check(d.id).catch(() => null);
-                    if (!check || !check.can_download) {
-                      if (check?.statut === "en_attente") {
-                        ctx.toast({ tone: "gold", title: "En attente", body: "Votre demande est en cours de validation." });
-                      } else if (check?.statut === "refuse") {
-                        ctx.toast({ tone: "danger", title: "Accès refusé", body: "Vous ne pouvez pas télécharger ce document." });
-                      } else {
-                        try {
-                          await api.demandes.create(d.id);
-                          ctx.toast({ tone: "success", title: "Demande envoyée", body: "Votre demande de téléchargement a été transmise au chef archiviste." });
-                        } catch { ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible d'envoyer la demande." }); }
-                      }
-                      return;
-                    }
-                  }
-                  const token = localStorage.getItem("archive_token");
-                  try {
-                    const r = await fetch(api.archives.saveUrl(d.id), {
-                      headers: token ? { Authorization: `Bearer ${token}` } : {},
-                    });
-                    if (!r.ok) throw new Error();
-                    const blob = await r.blob();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = d.original_name || d.id;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  } catch {
-                    ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de télécharger le fichier." });
-                  }
-                }}>
+                onClick={() => downloadDocument(d.id, d.original_name || d.id, ctx)}>
                 <Icon name="download" size={14} />
               </button>
             </div>
@@ -695,10 +653,10 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
             </div>
 
             <div className="row gap-3 center" style={{ marginBottom: 22, padding: "12px 14px", background: "var(--surface-2)", borderRadius: "var(--r-md)", border: "1px solid var(--border)" }}>
-              <input type="checkbox" id="edit-restricted" checked={editForm.restricted}
+              <input type="checkbox" id="vw-edit-restricted" checked={editForm.restricted}
                 onChange={e => setEF("restricted", e.target.checked)}
                 style={{ width: 16, height: 16, accentColor: "var(--primary)", cursor: "pointer" }} />
-              <label htmlFor="edit-restricted" style={{ cursor: "pointer", userSelect: "none" }}>
+              <label htmlFor="vw-edit-restricted" style={{ cursor: "pointer", userSelect: "none" }}>
                 <span style={{ fontWeight: 600, fontSize: 13 }}>Accès restreint au service</span>
                 <span className="muted" style={{ display: "block", fontSize: 12 }}>Seuls les agents du service émetteur pourront consulter ce document.</span>
               </label>
@@ -724,6 +682,8 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
           onCancel={() => { ctx.toast({ title: "Suppression annulée", body: "Aucune modification." }); setConfirm(null); }}
         />
       )}
+
+
     </div>
   );
 }

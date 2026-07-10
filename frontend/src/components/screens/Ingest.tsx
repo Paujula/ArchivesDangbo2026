@@ -100,7 +100,7 @@ export default function Ingest({ ctx }: { ctx: AppCtx }) {
     api.settings.listSeries().then(r => setSeries(r.series.map((s: any) => ({ ...s, id: String(s.id), sous_series: s.sous_series.map((ss: any) => ({ ...ss, id: String(ss.id) })) })))).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les séries." }));
     api.settings.listSousSeries().then(r => setSousSeries(r.sous_series.map((s: any) => ({ ...s, id: String(s.id), id_serie: String(s.id_serie) })))).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les sous-séries." }));
     api.settings.listEmplacements().then(r => setEmplacements(r.emplacements.map((e: any) => ({ ...e, id: String(e.id) })))).catch(() => ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger les emplacements." }));
-  }, [ctx]);
+  }, []);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {

@@ -5,6 +5,7 @@ import Icon from "@/components/ui/Icon";
 import Badge from "@/components/ui/Badge";
 import Confirm from "@/components/ui/Confirm";
 import { api } from "@/lib/api";
+import { formatDateTime } from "@/lib/utils";
 import type { AppCtx, DemandeEntry } from "@/lib/types";
 
 const STATUT_LABELS: Record<string, string> = {
@@ -19,11 +20,7 @@ const STATUT_TONES: Record<string, string> = {
   refuse: "danger",
 };
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) + " à " +
-    d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-}
+
 
 const CARD_CONFIG = [
   { key: "en_attente", icon: "clock", tone: "gold", label: "En attente" },
@@ -182,7 +179,7 @@ function DemandesChef({ ctx }: { ctx: AppCtx }) {
               <tbody>
                 {entries.map(e => (
                   <tr key={e.id}>
-                    <td><span className="mono" style={{ fontSize: 11 }}>{formatDate(e.date_demande)}</span></td>
+                    <td><span className="mono" style={{ fontSize: 11 }}>{formatDateTime(e.date_demande)}</span></td>
                     <td>
                       <span style={{ fontSize: 12, fontWeight: 500 }}>
                         {e.utilisateur?.prenom} {e.utilisateur?.name}
@@ -401,7 +398,7 @@ function DemandesUser({ ctx }: { ctx: AppCtx }) {
               <tbody>
                 {entries.map(e => (
                   <tr key={e.id}>
-                    <td><span className="mono" style={{ fontSize: 11 }}>{formatDate(e.date_demande)}</span></td>
+                    <td><span className="mono" style={{ fontSize: 11 }}>{formatDateTime(e.date_demande)}</span></td>
                     <td>
                       {e.document ? (
                         <span style={{ fontSize: 12 }}>

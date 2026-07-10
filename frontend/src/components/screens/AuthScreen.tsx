@@ -101,17 +101,11 @@ function AuthBrand() {
 export default function AuthScreen() {
   const app = useApp();
 
-  const [mode,    setMode]    = useState<'login' | 'forgot' | 'sent' | 'reset' | 'done'>('login');
+  const [mode,    setMode]    = useState<'login' | 'forgot' | 'sent'>('login');
   const [email,   setEmail]   = useState('');
   const [pw,      setPw]      = useState('');
   const [err,     setErr]     = useState('');
   const [loading, setLoading] = useState(false);
-
-  // Forgot / reset
-  const [resetToken, setResetToken] = useState('');
-  const [rpw,  setRpw]  = useState('');
-  const [rpw2, setRpw2] = useState('');
-  const [rerr, setRerr] = useState<Record<string, string>>({});
 
   const fillDemo = (a: typeof DEMO_ACCOUNTS[0]) => {
     setEmail(a.email);
@@ -143,6 +137,8 @@ export default function AuthScreen() {
   };
 
   // ── Mot de passe oublié ────────────────────────────────────────────────────
+  // Seuls les administrateurs et chefs archivistes peuvent réinitialiser
+  // leur mot de passe. Le backend vérifie le rôle avant d'envoyer le lien.
 
   const submitForgot = async () => {
     setErr('');
@@ -158,39 +154,12 @@ export default function AuthScreen() {
       if (e instanceof ApiError) {
         setErr(e.message);
       } else {
-        // On affiche quand même "sent" pour ne pas révéler si l'email existe
-        setMode('sent');
+        setErr('Contactez votre administrateur pour réinitialiser votre mot de passe.');
       }
     } finally {
       setLoading(false);
     }
   };
-
-  // ── Reset mot de passe ─────────────────────────────────────────────────────
-
-  const submitReset = async () => {
-    const e: Record<string, string> = {};
-    if (rpw.length < 8)  e.rpw  = '8 caractères minimum.';
-    if (rpw2 !== rpw)    e.rpw2 = 'Les mots de passe ne correspondent pas.';
-    setRerr(e);
-    if (Object.keys(e).length) return;
-
-    setLoading(true);
-    try {
-      await api.auth.resetPassword(resetToken, email, rpw, rpw2);
-      setMode('done');
-    } catch (ex) {
-      if (ex instanceof ApiError) {
-        setRerr({ rpw: ex.message });
-      } else {
-        setRerr({ rpw: 'Erreur réseau. Réessayez.' });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const st = pwStrength(rpw);
 
   return (
     <div className="auth-wrap">
@@ -264,7 +233,6 @@ export default function AuthScreen() {
                   );
                 })}
               </div>
-
             </div>
           )}
 
@@ -280,7 +248,7 @@ export default function AuthScreen() {
               </div>
               <div className="auth-h">Mot de passe oublié</div>
               <p className="muted" style={{ fontSize: 13.5, marginTop: 6, marginBottom: 22, lineHeight: 1.5 }}>
-                Saisissez votre e-mail professionnel. Un lien de réinitialisation vous sera envoyé.
+                Saisissez votre adresse e-mail professionnelle. Seuls les administrateurs et chefs archivistes peuvent réinitialiser leur mot de passe.
               </p>
               {err && (
                 <div className="row gap-2 center" style={{ padding: '10px 12px', background: 'var(--danger-soft)', border: '1px solid #f0c9c5', borderRadius: 'var(--r-md)', marginBottom: 16 }}>
@@ -313,73 +281,10 @@ export default function AuthScreen() {
               </div>
               <div className="auth-h">Vérifiez votre messagerie</div>
               <p className="muted" style={{ fontSize: 13.5, marginTop: 8, lineHeight: 1.55 }}>
-                Si un compte est associé à <strong style={{ color: 'var(--text)' }}>{email || 'votre adresse'}</strong>, un lien de réinitialisation vient d&apos;y être envoyé. Le lien expire dans 30 minutes.
+                Si un compte administrateur ou chef archiviste est associé à <strong style={{ color: 'var(--text)' }}>{email || 'votre adresse'}</strong>, un lien de réinitialisation vient d&apos;y être envoyé.
               </p>
-              <div className="row gap-2 center" style={{ padding: '11px 13px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', margin: '18px 0' }}>
-                <Icon name="info" size={15} className="muted" />
-                <span className="muted" style={{ fontSize: 12 }}>Démonstration : poursuivez la réinitialisation ci-dessous.</span>
-              </div>
-              <button className="btn btn-primary" style={{ width: '100%', height: 44, marginBottom: 10 }} onClick={() => setMode('reset')}>
-                <Icon name="key" size={16} />Réinitialiser maintenant
-              </button>
-              <button className="btn btn-ghost" style={{ width: '100%' }} onClick={() => { setMode('login'); setErr(''); }}>
+              <button className="btn btn-ghost" style={{ width: '100%', marginTop: 18 }} onClick={() => { setMode('login'); setErr(''); }}>
                 Retour à la connexion
-              </button>
-            </div>
-          )}
-
-          {/* ── Nouveau mot de passe ────────────────────────────────────── */}
-          {mode === 'reset' && (
-            <div>
-              <div className="s-ico" style={{ width: 46, height: 46, background: 'var(--primary-soft)', color: 'var(--primary)', marginBottom: 16 }}>
-                <Icon name="lock" size={22} />
-              </div>
-              <div className="auth-h">Nouveau mot de passe</div>
-              <p className="muted" style={{ fontSize: 13.5, marginTop: 6, marginBottom: 22 }}>
-                Choisissez un mot de passe robuste (8 caractères minimum).
-              </p>
-              <div className="field" style={{ marginBottom: 14 }}>
-                <label>Nouveau mot de passe</label>
-                <PwField value={rpw} onChange={e => { setRpw(e.target.value); setRerr(x => ({ ...x, rpw: '' })); }}
-                  placeholder="••••••••" error={rerr.rpw} autoFocus />
-                {rpw && (
-                  <div style={{ marginTop: 8 }}>
-                    <div className="auth-strength"><i style={{ width: st.pct + '%', background: st.color }} /></div>
-                    <div className="row between" style={{ marginTop: 5 }}>
-                      <span className="muted-3" style={{ fontSize: 11 }}>Sécurité</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: st.color }}>{st.label}</span>
-                    </div>
-                  </div>
-                )}
-                {rerr.rpw && <div className="err-msg"><Icon name="alert" size={13} />{rerr.rpw}</div>}
-              </div>
-              <div className="field" style={{ marginBottom: 20 }}>
-                <label>Confirmer le mot de passe</label>
-                <PwField value={rpw2} onChange={e => { setRpw2(e.target.value); setRerr(x => ({ ...x, rpw2: '' })); }}
-                  placeholder="••••••••" error={rerr.rpw2} />
-                {rerr.rpw2 && <div className="err-msg"><Icon name="alert" size={13} />{rerr.rpw2}</div>}
-              </div>
-              <button className="btn btn-primary" style={{ width: '100%', height: 44 }} onClick={submitReset} disabled={loading}>
-                {loading
-                  ? <><span className="sk" style={{ width: 15, height: 15, borderRadius: '50%' }} />Enregistrement…</>
-                  : <><Icon name="check" size={17} />Définir le mot de passe</>}
-              </button>
-            </div>
-          )}
-
-          {/* ── Succès ─────────────────────────────────────────────────── */}
-          {mode === 'done' && (
-            <div style={{ textAlign: 'center' }}>
-              <div className="s-ico" style={{ width: 56, height: 56, background: 'var(--primary-soft)', color: 'var(--primary)', margin: '0 auto 18px' }}>
-                <Icon name="shieldCheck" size={26} />
-              </div>
-              <div className="auth-h">Mot de passe mis à jour</div>
-              <p className="muted" style={{ fontSize: 13.5, marginTop: 8, lineHeight: 1.55 }}>
-                Votre mot de passe a été modifié avec succès. Vous pouvez désormais vous connecter avec vos nouveaux identifiants.
-              </p>
-              <button className="btn btn-primary" style={{ width: '100%', height: 44, marginTop: 22 }}
-                onClick={() => { setMode('login'); setPw(''); setRpw(''); setRpw2(''); setErr(''); }}>
-                <Icon name="login" size={17} />Aller à la connexion
               </button>
             </div>
           )}

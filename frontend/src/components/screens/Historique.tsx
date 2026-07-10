@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/Icon";
 import Badge from "@/components/ui/Badge";
 import { api } from "@/lib/api";
+import { formatDateTime } from "@/lib/utils";
 import type { AppCtx, HistoriqueEntry } from "@/lib/types";
 
 function parseDetails(details: string): { label: string; value: string }[] {
@@ -53,15 +54,10 @@ const TYPE_LABELS: Record<string, string> = {
   authentification: "Système",
 };
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) + " à " +
-    d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-}
+
 
 export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
   const [entries, setEntries] = useState<HistoriqueEntry[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -72,7 +68,6 @@ export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
     try {
       const res = await api.historiques.list({ type: filter || undefined, page: p, per_page: 30 });
       setEntries(res.historiques);
-      setTotal(res.total);
       setPage(res.current_page);
       setLastPage(res.last_page);
     } catch {
@@ -133,7 +128,7 @@ export default function HistoriqueScreen({ ctx }: { ctx: AppCtx }) {
               <tbody>
                 {entries.map(e => (
                   <tr key={e.id}>
-                    <td><span className="mono" style={{ fontSize: 11 }}>{formatDate(e.date_action)}</span></td>
+                    <td><span className="mono" style={{ fontSize: 11 }}>{formatDateTime(e.date_action)}</span></td>
                     <td>
                       {e.user ? (
                         <span style={{ fontSize: 12, fontWeight: 500 }}>{e.user.prenom} {e.user.name}</span>
