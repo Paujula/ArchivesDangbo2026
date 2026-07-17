@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/Icon";
 import Badge from "@/components/ui/Badge";
+import ConsultModal from "@/components/ui/ConsultModal";
 import { api, downloadDocument } from "@/lib/api";
 import type { AppCtx, Doc } from "@/lib/types";
 
@@ -12,6 +13,7 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
+  const [consultDoc, setConsultDoc] = useState<Doc | null>(null);
 
   const fetchDocs = useCallback(async (searchQ?: string) => {
     setLoading(true);
@@ -112,7 +114,7 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
                         : <span className="muted-3" style={{ fontSize: 11.5 }}>—</span>}
                     </td>
                     <td><Badge>{d.serie || d.type || "—"}</Badge></td>
-                    <td><span style={{ fontSize: 12 }}>{(d.sous_serie || d.sub || "—").replace(/^[\dA-Za-z]+\s*[–\-—]\s*/, "")}</span></td>
+                    <td><span style={{ fontSize: 12 }}>{(d.sous_serie || d.sub || "-").replace(/^[\dA-Za-z]+\s*[-]\s*/, "")}</span></td>
                     <td><span style={{ fontSize: 12 }}>{d.service || "—"}</span></td>
                     <td><span className="mono tnum" style={{ fontSize: 12 }}>{d.date ? new Date(d.date).toLocaleDateString("fr-FR") : "—"}</span></td>
                     <td>
@@ -120,7 +122,7 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
                         <button type="button" className="ra-btn tip" data-tip="Modifier" onClick={() => { ctx.setEditOnOpen(true); ctx.openDoc(d); }}>
                           <Icon name="edit" size={16} />
                         </button>
-                        <button type="button" className="ra-btn tip" data-tip="Consulter" onClick={() => ctx.openDoc(d)}>
+                        <button type="button" className="ra-btn tip" data-tip="Consulter" onClick={() => setConsultDoc(d)}>
                           <Icon name="eye" size={16} />
                         </button>
                         <button type="button" className="ra-btn tip" data-tip="Télécharger"
@@ -136,6 +138,15 @@ export default function MyDocuments({ ctx }: { ctx: AppCtx }) {
           </div>
         )}
       </div>
+
+      {consultDoc && (
+        <ConsultModal
+          doc={consultDoc}
+          ctx={ctx}
+          onClose={() => setConsultDoc(null)}
+          onEdit={() => { ctx.setEditOnOpen(true); ctx.openDoc(consultDoc); }}
+        />
+      )}
     </div>
   );
 }

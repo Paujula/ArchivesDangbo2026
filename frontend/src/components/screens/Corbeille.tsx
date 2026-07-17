@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/Icon";
+import ConsultModal from "@/components/ui/ConsultModal";
 import { api } from "@/lib/api";
 
 const STORAGE_HOST = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api').replace(/\/api\/?$/, '');
@@ -9,7 +10,7 @@ const STORAGE_HOST = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/
 function carteUrl(url: string): string {
   return url.startsWith('http') ? url : `${STORAGE_HOST}${url}`;
 }
-import type { AppCtx } from "@/lib/types";
+import type { AppCtx, Doc } from "@/lib/types";
 
 type Tab = "documents" | "utilisateurs";
 
@@ -50,12 +51,7 @@ function DocumentsTab({ ctx }: { ctx: AppCtx }) {
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [viewDoc, setViewDoc] = useState<typeof docs[number] | null>(null);
-  const [previewDocFile, setPreviewDocFile] = useState<string | null>(null);
-  const closePreviewDoc = () => {
-    if (previewDocFile?.startsWith('blob:')) URL.revokeObjectURL(previewDocFile);
-    setPreviewDocFile(null);
-  };
+  const [consultDoc, setConsultDoc] = useState<Doc | null>(null);
 
   const load = useCallback(async (p: number) => {
     setLoading(true);
@@ -186,26 +182,17 @@ function DocumentsTab({ ctx }: { ctx: AppCtx }) {
                           onClick={() => handleRestore(d.id)}>
                           <Icon name="refresh" size={16} />
                         </button>
-                        {d.fichier && (
-                          <button className="ra-btn tip" data-tip="Voir" onClick={async () => {
-                            const token = localStorage.getItem("archive_token");
-                            try {
-                              const r = await fetch(api.archives.downloadUrl(d.id), {
-                                headers: token ? { Authorization: `Bearer ${token}` } : {},
-                              });
-                              if (!r.ok) throw new Error();
-                              const blob = await r.blob();
-                              setPreviewDocFile(URL.createObjectURL(blob));
-                            } catch {
-                              ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger le document." });
-                            }
-                          }}>
-                            <Icon name="eye" size={16} />
-                          </button>
-                        )}
                         <button className="ra-btn tip" data-tip="Consulter"
-                          onClick={() => setViewDoc(d)}>
-                          <Icon name="info" size={16} />
+                          onClick={() => setConsultDoc({
+                            id: d.id, title: d.titre, cote: d.cote, description: d.analyse,
+                            service: d.service, direction: d.direction, serie: d.serie,
+                            sous_serie: d.sous_serie, emplacement: d.emplacement,
+                            status: d.statut, format: d.format, date: d.date_enregistrement,
+                            pages: d.pages, restricted: d.restricted,
+                            views: 0, by: '',
+                            original_name: d.original_name, file: d.fichier,
+                          } as Doc)}>
+                          <Icon name="eye" size={16} />
                         </button>
                       </span>
                     </td>
@@ -234,72 +221,13 @@ function DocumentsTab({ ctx }: { ctx: AppCtx }) {
         )}
       </div>
 
-      {/* Aperçu document */}
-      {previewDocFile && (
-        <>
-          <div className="drawer-overlay" onClick={closePreviewDoc} />
-          <div className="drawer" style={{ maxWidth: 700 }}>
-            <div className="row between center" style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Document</div>
-              <button className="icon-btn" onClick={closePreviewDoc}><Icon name="x" size={18} /></button>
-            </div>
-            <div style={{ flex: 1, overflow: "auto", padding: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
-              {previewDocFile.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) ? (
-                <img src={previewDocFile} alt="Document"
-                  style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain", borderRadius: "var(--r-md)", boxShadow: "0 2px 12px rgba(0,0,0,.12)" }} />
-              ) : (
-                <iframe src={previewDocFile} title="Document" style={{ width: "100%", height: "65vh", border: "none", borderRadius: "var(--r-md)" }} />
-              )}
-            </div>
-            <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border)" }}>
-              <button className="btn btn-ghost btn-sm" onClick={closePreviewDoc}>Fermer</button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Drawer document */}
-      {viewDoc && (
-        <>
-          <div className="drawer-overlay" onClick={() => setViewDoc(null)} />
-          <div className="drawer" style={{ maxWidth: 600 }}>
-            <div className="row between center" style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>Document supprimé</div>
-                <div className="muted-3 mono" style={{ fontSize: 11 }}>
-                  {new Date(viewDoc.deleted_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                </div>
-              </div>
-              <button className="icon-btn" onClick={() => setViewDoc(null)}><Icon name="x" size={18} /></button>
-            </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
-              {viewDoc.deleter && (
-                <div style={{ marginBottom: 16, padding: "10px 14px", background: "var(--surface-2)", borderRadius: "var(--r-md)", fontSize: 13 }}>
-                  <span className="muted">Supprimé par :</span> <strong>{viewDoc.deleter.prenom} {viewDoc.deleter.name}</strong>
-                </div>
-              )}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <Field label="Cote" value={viewDoc.cote} />
-                <Field label="Titre" value={viewDoc.titre} />
-                <Field label="Analyse" value={viewDoc.analyse} />
-                <Field label="Emplacement" value={viewDoc.emplacement} />
-                <Field label="Service" value={viewDoc.service} />
-                <Field label="Direction" value={viewDoc.direction} />
-                <Field label="Série" value={viewDoc.serie} />
-                <Field label="Sous-série" value={viewDoc.sous_serie} />
-                <Field label="Format" value={viewDoc.format} />
-                <Field label="Pages" value={viewDoc.pages} />
-                <Field label="Statut" value={viewDoc.statut} />
-                <Field label="Restreint" value={viewDoc.restricted ? "Oui" : "Non"} />
-                <Field label="Date d'enregistrement" value={viewDoc.date_enregistrement} />
-                {viewDoc.original_name && <Field label="Fichier original" value={viewDoc.original_name} />}
-              </div>
-            </div>
-            <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border)" }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setViewDoc(null)}>Fermer</button>
-            </div>
-          </div>
-        </>
+      {consultDoc && (
+        <ConsultModal
+          doc={consultDoc}
+          ctx={ctx}
+          onClose={() => setConsultDoc(null)}
+          downloadable={false}
+        />
       )}
     </>
   );

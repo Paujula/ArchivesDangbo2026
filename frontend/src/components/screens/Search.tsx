@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Icon from "@/components/ui/Icon";
+import ConsultModal from "@/components/ui/ConsultModal";
 import { api, downloadDocument } from "@/lib/api";
 import type { AppCtx, Doc } from "@/lib/types";
 
@@ -39,6 +40,7 @@ export default function Search({ ctx }: { ctx: AppCtx }) {
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
   const [hasSearched, setHasSearched] = useState(ctx.hasSearched);
+  const [consultDoc, setConsultDoc] = useState<Doc | null>(null);
 
   useEffect(() => {
     setHistory(getHistory());
@@ -161,7 +163,7 @@ export default function Search({ ctx }: { ctx: AppCtx }) {
               <select className="select" style={{ height: 32, width: "auto", fontSize: 12.5, paddingRight: 26 }}
                 value={filterSvc} onChange={e => { setFilterSvc(e.target.value); }}>
                 <option value="">Tous les services</option>
-                {(filterDir ? allowedSvcs.filter(s => ctx.serviceDirections[s] === filterDir) : allowedSvcs).map(s => <option key={s} value={s}>{s}</option>)}
+                {(filterDir ? allowedSvcs.filter(s => ctx.serviceDirections[s] === filterDir) : allowedSvcs).map((s, i) => <option key={s + i} value={s}>{s}</option>)}
               </select>
             </>;
           })()}
@@ -262,13 +264,13 @@ export default function Search({ ctx }: { ctx: AppCtx }) {
                           : <span className="muted-3" style={{ fontSize: 11.5 }}>—</span>}
                       </td>
                       <td><span style={{ fontSize: 12 }}>{d.serie || "—"}</span></td>
-                      <td><span style={{ fontSize: 12 }}>{(d.sous_serie || "—").replace(/^[\dA-Za-z]+\s*[–\-—]\s*/, "")}</span></td>
+                      <td><span style={{ fontSize: 12 }}>{(d.sous_serie || "-").replace(/^[\dA-Za-z]+\s*[-]\s*/, "")}</span></td>
                       <td><span className="muted" style={{ fontSize: 12 }}>{d.direction || "—"}</span></td>
                       <td><span style={{ fontSize: 12 }}>{d.service || "—"}</span></td>
                       {(ctx.role === "chef" || ctx.role === "admin") && <td><span style={{ fontSize: 12 }}>{d.emplacement || "—"}</span></td>}
                       <td onClick={e => e.stopPropagation()}>
                         <div className="row-actions" style={{ justifyContent: "flex-end" }}>
-                          <button className="ra-btn tip" data-tip="Consulter" onClick={() => ctx.openDoc(d)}>
+                          <button className="ra-btn tip" data-tip="Consulter" onClick={() => setConsultDoc(d)}>
                             <Icon name="eye" size={16} />
                           </button>
                           <button className="ra-btn tip" data-tip="Télécharger"
@@ -283,6 +285,15 @@ export default function Search({ ctx }: { ctx: AppCtx }) {
             </table>
           </div>
         </div>
+      )}
+
+      {consultDoc && (
+        <ConsultModal
+          doc={consultDoc}
+          ctx={ctx}
+          onClose={() => setConsultDoc(null)}
+          downloadable={false}
+        />
       )}
     </div>
   );

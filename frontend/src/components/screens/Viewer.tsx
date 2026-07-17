@@ -199,13 +199,22 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
     fetch(api.archives.downloadUrl(d.id), {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
-      .then(r => r.ok ? r.blob() : Promise.reject())
+      .then(r => {
+        if (!r.ok) {
+          console.error('Download failed', r.status, r.statusText);
+          return r.text().then(t => Promise.reject(t));
+        }
+        return r.blob();
+      })
       .then(blob => {
         const url = URL.createObjectURL(blob);
         blobUrlRef.current = url;
         setFileUrl(url);
       })
-      .catch(() => setFileUrl(null))
+      .catch((err) => {
+        console.error('Viewer fetch error:', err);
+        setFileUrl(null);
+      })
       .finally(() => setFileLoading(false));
 
     return () => {
@@ -269,7 +278,7 @@ export default function Viewer({ ctx }: { ctx: AppCtx }) {
               onClick={() => ctx.toast({ tone: 'danger', title: 'Action interdite', body: 'Le téléchargement n\'est pas autorisé en mode consultation.' })}>
               <Icon name="lock" size={14} />Téléchargement protégé
             </button>
-            {canEdit && !ctx.corbeilleView && ctx.lastList !== "search" && ctx.lastList !== "documents" && ctx.lastList !== "demandes" && (
+            {canEdit && !ctx.corbeilleView && ctx.lastList === "documents" && (
               <button className="btn btn-soft btn-sm" onClick={() => setEditOpen(true)}>
                 <Icon name="edit" size={15} />Modifier
               </button>

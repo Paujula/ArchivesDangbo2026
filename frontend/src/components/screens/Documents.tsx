@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Icon from "@/components/ui/Icon";
 import Badge from "@/components/ui/Badge";
 import Confirm from "@/components/ui/Confirm";
+import ConsultModal from "@/components/ui/ConsultModal";
 import { api, ApiError, downloadDocument } from "@/lib/api";
 import type { AppCtx, Doc } from "@/lib/types";
 
@@ -269,6 +270,7 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
   const [filterSvc, setFilterSvc] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [sort, setSort] = useState("");
+  const [consultDoc, setConsultDoc] = useState<Doc | null>(null);
   const [editDoc, setEditDoc] = useState<Doc | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [confirm, setConfirm] = useState<{ msg: string; onConfirm: () => void } | null>(null);
@@ -365,7 +367,7 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
           <select className="select" style={{ height: 32, width: "auto", fontSize: 12.5, paddingRight: 26 }}
             value={filterSvc} onChange={e => setFilterSvc(e.target.value)}>
             <option value="">Tous les services</option>
-            {(filterDir ? ctx.services.filter(s => ctx.serviceDirections[s] === filterDir) : ctx.services).map(s => <option key={s} value={s}>{s}</option>)}
+            {(filterDir ? ctx.services.filter(s => ctx.serviceDirections[s] === filterDir) : ctx.services).map((s, i) => <option key={s + i} value={s}>{s}</option>)}
           </select>
           <input type="date" className="input" style={{ height: 32, width: 150, fontSize: 12 }}
             value={filterDate} onChange={e => setFilterDate(e.target.value)} title="Filtrer par date" />
@@ -472,14 +474,14 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
                               </td>
                               <td><span style={{ fontSize: 12 }}>{d.emplacement || "—"}</span></td>
                               <td><Badge>{d.serie || d.type || "—"}</Badge></td>
-                              <td><span style={{ fontSize: 12 }}>{(d.sous_serie || d.sub || "—").replace(/^[\dA-Za-z]+\s*[–\-—]\s*/, "")}</span></td>
+                              <td><span style={{ fontSize: 12 }}>{(d.sous_serie || d.sub || "-").replace(/^[\dA-Za-z]+\s*[-]\s*/, "")}</span></td>
                               <td><span style={{ fontSize: 12 }}>{d.service || "—"}</span></td>
                               <td><span style={{ fontSize: 12 }}>{d.direction || "—"}</span></td>
                               <td><span style={{ fontSize: 12 }}>{d.indexed_by || d.by || "—"}</span></td>
                               <td><span className="mono tnum" style={{ fontSize: 12 }}>{d.date ? new Date(d.date).toLocaleDateString("fr-FR") : "—"}</span></td>
                               <td>
                                 <div className="row-actions" style={{ justifyContent: "flex-end" }}>
-                                  <button type="button" className="ra-btn tip" data-tip="Consulter" onClick={() => ctx.openDoc(d)}>
+                                  <button type="button" className="ra-btn tip" data-tip="Consulter" onClick={() => setConsultDoc(d)}>
                                     <Icon name="eye" size={16} />
                                   </button>
                                   <button type="button" className="ra-btn tip" data-tip="Modifier" onClick={() => setEditDoc(d)}>
@@ -507,6 +509,15 @@ export default function Documents({ ctx }: { ctx: AppCtx }) {
           </div>
         )}
       </div>
+
+      {consultDoc && (
+        <ConsultModal
+          doc={consultDoc}
+          ctx={ctx}
+          onClose={() => setConsultDoc(null)}
+          onEdit={() => { setEditDoc(consultDoc); setConsultDoc(null); }}
+        />
+      )}
 
       {editDoc && (
         <EditDrawer

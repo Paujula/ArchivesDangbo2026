@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Icon from "@/components/ui/Icon";
+import ConsultModal from "@/components/ui/ConsultModal";
 import { api, getToken } from "@/lib/api";
-import type { AppCtx, RapportDocument } from "@/lib/types";
+import type { AppCtx, Doc, RapportDocument } from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
@@ -11,6 +12,7 @@ export default function RapportScreen({ ctx }: { ctx: AppCtx }) {
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(ctx.rapportDate || today);
   const [loading, setLoading] = useState(false);
+  const [consultDoc, setConsultDoc] = useState<Doc | null>(null);
 
   const search = async () => {
     if (!date) return;
@@ -28,7 +30,7 @@ export default function RapportScreen({ ctx }: { ctx: AppCtx }) {
   const viewDocument = async (d: RapportDocument) => {
     try {
       const { archive } = await api.archives.get(d.id);
-      ctx.openDoc(archive);
+      setConsultDoc(archive);
     } catch {
       ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible d'ouvrir le document." });
     }
@@ -171,6 +173,15 @@ export default function RapportScreen({ ctx }: { ctx: AppCtx }) {
           </div>
         </div>
       ) : null}
+
+      {consultDoc && (
+        <ConsultModal
+          doc={consultDoc}
+          ctx={ctx}
+          onClose={() => setConsultDoc(null)}
+          downloadable={false}
+        />
+      )}
     </div>
   );
 }

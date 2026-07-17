@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/Icon";
 import Confirm from "@/components/ui/Confirm";
 import type { AppCtx } from "@/lib/types";
@@ -21,7 +21,26 @@ function AddInline({ placeholder, onAdd, btn = "Ajouter" }: {
 
 export default function Settings({ ctx }: { ctx: AppCtx }) {
   const { services, serviceDirections, cfg, sousSeries, series, directions, emplacements } = ctx;
-  const [tab, setTab] = useState<"directions" | "services" | "series" | "emplacements">("directions");
+
+  const tabs = ["directions", "services", "series", "emplacements"] as const;
+  type Tab = typeof tabs[number];
+
+  const tabFromUrl = (): Tab => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search).get("tab") as Tab | null;
+      if (p && tabs.includes(p)) return p;
+    }
+    return "directions";
+  };
+
+  const [tab, setTab] = useState<Tab>(tabFromUrl);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (tab === "directions") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", tab);
+    window.history.replaceState({}, "", url.toString());
+  }, [tab]);
   const [newSerieNom, setNewSerieNom] = useState("");
   const [newSerieSous, setNewSerieSous] = useState("");
   const [newSousSerie, setNewSousSerie] = useState("");
@@ -206,7 +225,7 @@ export default function Settings({ ctx }: { ctx: AppCtx }) {
               Grandes catégories du cadre de classement (A — L).
             </div>
 
-            <div className="col" style={{ border: "1px solid var(--border)", borderRadius: "var(--r-md)", overflow: "hidden", maxHeight: 400, overflowY: "auto" }}>
+            <div className="col" style={{ border: "1px solid var(--border)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
               {series.length === 0 && <div className="muted-3" style={{ padding: 14, fontSize: 12.5 }}>Aucune série.</div>}
               {series.map((s, i) => (
                 <div key={s.id} className="row between center"
@@ -253,7 +272,7 @@ export default function Settings({ ctx }: { ctx: AppCtx }) {
               Subdivisions liées à une série (ex : 1A — Gestion administrative).
             </div>
 
-            <div className="col" style={{ border: "1px solid var(--border)", borderRadius: "var(--r-md)", overflow: "hidden", maxHeight: 400, overflowY: "auto" }}>
+            <div className="col" style={{ border: "1px solid var(--border)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
               {sousSeries.length === 0 && <div className="muted-3" style={{ padding: 14, fontSize: 12.5 }}>Aucune sous-série.</div>}
               {sousSeries.map((s, i) => {
                 const parent = series.find(sr => sr.id === s.id_serie);

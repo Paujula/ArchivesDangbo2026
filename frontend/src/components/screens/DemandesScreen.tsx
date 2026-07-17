@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/Icon";
 import Badge from "@/components/ui/Badge";
+import ConsultModal from "@/components/ui/ConsultModal";
 import Confirm from "@/components/ui/Confirm";
 import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/utils";
-import type { AppCtx, DemandeEntry } from "@/lib/types";
+import type { AppCtx, DemandeEntry, Doc } from "@/lib/types";
 
 const STATUT_LABELS: Record<string, string> = {
   en_attente: "En attente",
@@ -36,6 +37,7 @@ function DemandesChef({ ctx }: { ctx: AppCtx }) {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<number | null>(null);
   const [viewingDoc, setViewingDoc] = useState<number | null>(null);
+  const [consultDoc, setConsultDoc] = useState<Doc | null>(null);
   const [stats, setStats] = useState<{ en_attente: number; approuve: number; refuse: number } | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onConfirm: () => void } | null>(null);
   const filter = ctx.demandesFilterChef;
@@ -50,7 +52,7 @@ function DemandesChef({ ctx }: { ctx: AppCtx }) {
     setViewingDoc(entry.id);
     try {
       const { archive } = await api.archives.get(entry.document.id);
-      ctx.openDoc(archive);
+      setConsultDoc(archive);
     } catch {
       ctx.toast({ tone: "danger", title: "Erreur", body: "Impossible de charger le document." });
     } finally {
@@ -264,6 +266,15 @@ function DemandesChef({ ctx }: { ctx: AppCtx }) {
           </div>
         )}
       </div>
+
+      {consultDoc && (
+        <ConsultModal
+          doc={consultDoc}
+          ctx={ctx}
+          onClose={() => setConsultDoc(null)}
+          downloadable={false}
+        />
+      )}
 
       {confirm && (
         <Confirm
